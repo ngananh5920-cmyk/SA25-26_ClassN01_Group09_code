@@ -18,6 +18,7 @@ import SearchBar from './SearchBar';
 import NotificationPanel from './NotificationPanel';
 import { useQuery } from '@tanstack/react-query';
 import api from '../utils/api';
+import { useConfirm } from '../hooks/useConfirm';
 
 interface LayoutProps {
   children: ReactNode;
@@ -27,6 +28,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const { user, clearAuth } = useAuth();
+  const { confirm, ConfirmDialog } = useConfirm();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -42,9 +44,19 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const unreadCount = notificationsData?.unreadCount || 0;
 
-  const handleLogout = () => {
-    clearAuth();
-    navigate('/login');
+  const handleLogout = async () => {
+    const confirmed = await confirm({
+      title: 'Xác nhận đăng xuất',
+      message: 'Bạn có chắc chắn muốn đăng xuất không?',
+      confirmText: 'Đăng xuất',
+      cancelText: 'Hủy',
+      type: 'warning',
+    });
+
+    if (confirmed) {
+      clearAuth();
+      navigate('/login');
+    }
   };
 
   const menuItems = [
@@ -166,6 +178,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         isOpen={notificationOpen}
         onClose={() => setNotificationOpen(false)}
       />
+      {ConfirmDialog}
     </div>
   );
 };
