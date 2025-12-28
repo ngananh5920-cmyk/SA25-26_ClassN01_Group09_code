@@ -22,7 +22,8 @@ const userSchema = new Schema<IUser>(
       type: String,
       required: [true, 'Please provide a password'],
       minlength: 6,
-      select: false, // Don't include password in queries by default
+      // Temporarily removed select: false to test login functionality
+      // select: false, // Don't include password in queries by default
     },
     role: {
       type: String,

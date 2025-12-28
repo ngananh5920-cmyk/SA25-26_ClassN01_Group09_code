@@ -6,31 +6,45 @@ import Employee from '../models/Employee';
 export const getDepartments = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const departments = await Department.find()
-      .populate('manager', 'firstName lastName email employeeId')
+      .populate({
+        path: 'manager',
+        select: 'firstName lastName email employeeId',
+        model: 'Employee',
+      })
       .sort({ name: 1 });
 
     res.json({ success: true, data: departments });
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    console.error('Error in getDepartments:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      success: false,
+      message: error.message || 'Internal server error',
+    });
   }
 };
 
 export const getDepartment = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const department = await Department.findById(req.params.id).populate(
-      'manager',
-      'firstName lastName email employeeId'
-    );
+    const department = await Department.findById(req.params.id).populate({
+      path: 'manager',
+      select: 'firstName lastName email employeeId',
+      model: 'Employee',
+    });
 
     if (!department) {
-      res.status(404).json({ message: 'Department not found' });
+      res.status(404).json({ success: false, message: 'Department not found' });
       return;
     }
 
     // Get employees in this department
     const employees = await Employee.find({ department: department._id })
       .select('firstName lastName email employeeId position status')
-      .populate('position', 'title');
+      .populate({
+        path: 'position',
+        select: 'title name',
+        model: 'Position',
+      });
 
     res.json({
       success: true,
@@ -40,21 +54,32 @@ export const getDepartment = async (req: AuthRequest, res: Response): Promise<vo
       },
     });
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    console.error('Error in getDepartment:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      success: false,
+      message: error.message || 'Internal server error',
+    });
   }
 };
 
 export const createDepartment = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const department = await Department.create(req.body);
-    const populated = await Department.findById(department._id).populate(
-      'manager',
-      'firstName lastName email employeeId'
-    );
+    const populated = await Department.findById(department._id).populate({
+      path: 'manager',
+      select: 'firstName lastName email employeeId',
+      model: 'Employee',
+    });
 
     res.status(201).json({ success: true, data: populated });
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    console.error('Error in createDepartment:', error);
+    console.error('Error stack:', error.stack);
+    res.status(400).json({ 
+      success: false,
+      message: error.message || 'Failed to create department',
+    });
   }
 };
 
@@ -63,16 +88,25 @@ export const updateDepartment = async (req: AuthRequest, res: Response): Promise
     const department = await Department.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true,
-    }).populate('manager', 'firstName lastName email employeeId');
+    }).populate({
+      path: 'manager',
+      select: 'firstName lastName email employeeId',
+      model: 'Employee',
+    });
 
     if (!department) {
-      res.status(404).json({ message: 'Department not found' });
+      res.status(404).json({ success: false, message: 'Department not found' });
       return;
     }
 
     res.json({ success: true, data: department });
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    console.error('Error in updateDepartment:', error);
+    console.error('Error stack:', error.stack);
+    res.status(400).json({ 
+      success: false,
+      message: error.message || 'Failed to update department',
+    });
   }
 };
 
@@ -82,6 +116,7 @@ export const deleteDepartment = async (req: AuthRequest, res: Response): Promise
     const employeesCount = await Employee.countDocuments({ department: req.params.id });
     if (employeesCount > 0) {
       res.status(400).json({
+        success: false,
         message: `Cannot delete department. It has ${employeesCount} employee(s).`,
       });
       return;
@@ -90,14 +125,22 @@ export const deleteDepartment = async (req: AuthRequest, res: Response): Promise
     const department = await Department.findByIdAndDelete(req.params.id);
 
     if (!department) {
-      res.status(404).json({ message: 'Department not found' });
+      res.status(404).json({ success: false, message: 'Department not found' });
       return;
     }
 
     res.json({ success: true, message: 'Department deleted successfully' });
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    console.error('Error in deleteDepartment:', error);
+    console.error('Error stack:', error.stack);
+    res.status(500).json({ 
+      success: false,
+      message: error.message || 'Internal server error',
+    });
   }
 };
+
+
+
 
 

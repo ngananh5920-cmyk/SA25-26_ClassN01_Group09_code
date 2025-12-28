@@ -130,6 +130,7 @@ export const processPayroll = async (req: AuthRequest, res: Response): Promise<v
     const employees = await Employee.find({ status: 'active' });
 
     const salaries = [];
+    const alreadyProcessed = [];
 
     for (const employee of employees) {
       // Check if salary already exists
@@ -149,17 +150,34 @@ export const processPayroll = async (req: AuthRequest, res: Response): Promise<v
           deductions: {},
         });
         salaries.push(salary);
+      } else {
+        alreadyProcessed.push(employee);
       }
+    }
+
+    // Check if all employees already have salary records
+    if (salaries.length === 0 && alreadyProcessed.length > 0) {
+      res.json({
+        success: true,
+        message: `Lương cho tháng ${month}/${year} đã được xử lý rồi cho tất cả ${alreadyProcessed.length} nhân viên`,
+        alreadyProcessed: true,
+        data: [],
+      });
+      return;
     }
 
     res.json({
       success: true,
-      message: `Payroll processed for ${salaries.length} employees`,
+      message: `Đã xử lý lương cho ${salaries.length} nhân viên${alreadyProcessed.length > 0 ? ` (${alreadyProcessed.length} nhân viên đã được xử lý trước đó)` : ''}`,
+      alreadyProcessed: false,
       data: salaries,
     });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
 };
+
+
+
 
 

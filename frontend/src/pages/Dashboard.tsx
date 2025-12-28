@@ -1,348 +1,389 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import api from '../utils/api';
-import { Users, Building2, Calendar, DollarSign, TrendingUp, Activity, Clock, AlertCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { Loading, SkeletonCard } from '../components/Loading';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-
-interface Stats {
-  total: number;
-  active: number;
-  inactive: number;
-  terminated: number;
-  byDepartment: Array<{ name: string; count: number }>;
-}
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { format } from 'date-fns';
+import { vi } from 'date-fns/locale';
+import { AlertTriangle, Calendar, Cake, FileText } from 'lucide-react';
+import api from '../utils/api';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
-  
-  const { data: stats } = useQuery<{ success: boolean; data: Stats }>({
-    queryKey: ['employeeStats'],
+
+  // Fetch statistics
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ['dashboard-stats'],
     queryFn: async () => {
-      const response = await api.get('/employees/stats');
-      return response.data;
+      try {
+        const response = await api.get('/dashboard/stats');
+        return response.data.data;
+      } catch (error) {
+        // Fallback to old method if new endpoint fails
+        const [employees, departments, leaves, salaries] = await Promise.all([
+          api.get('/employees').catch(() => ({ data: { data: [] } })),
+          api.get('/departments').catch(() => ({ data: { data: [] } })),
+          api.get('/leaves').catch(() => ({ data: { data: [] } })),
+          api.get('/salaries').catch(() => ({ data: { data: [] } })),
+        ]);
+
+      const employeesData = employees.data?.data || [];
+      const departmentsData = departments.data?.data || [];
+      const leavesData = leaves.data?.data || [];
+      const salariesData = salaries.data?.data || [];
+
+      // Calculate department distribution
+      const departmentCount: Record<string, number> = {};
+      employeesData.forEach((emp: any) => {
+        const deptName = emp.department?.name || 'Chưa phân phòng';
+        departmentCount[deptName] = (departmentCount[deptName] || 0) + 1;
+      });
+
+      const departmentChart = Object.entries(departmentCount).map(([name, count]) => ({
+        name,
+        value: count,
+      }));
+
+      // Calculate leave status distribution
+      const leaveStatusCount = {
+        pending: leavesData.filter((l: any) => l.status === 'pending').length,
+        approved: leavesData.filter((l: any) => l.status === 'approved').length,
+        rejected: leavesData.filter((l: any) => l.status === 'rejected').length,
+      };
+
+      return {
+        totalEmployees: employeesData.length,
+        activeEmployees: employeesData.filter((e: any) => e.status === 'active').length,
+        inactiveEmployees: employeesData.filter((e: any) => e.status === 'inactive').length,
+        terminatedEmployees: employeesData.filter((e: any) => e.status === 'terminated').length,
+        totalDepartments: departmentsData.length,
+        pendingLeaves: leaveStatusCount.pending,
+        approvedLeaves: leaveStatusCount.approved,
+        rejectedLeaves: leaveStatusCount.rejected,
+        totalLeaves: leavesData.length,
+        totalSalaries: salariesData.length,
+        departmentChart,
+        leaveStatusData: [
+          { name: 'Chờ duyệt', value: leaveStatusCount.pending },
+          { name: 'Đã duyệt', value: leaveStatusCount.approved },
+          { name: 'Từ chối', value: leaveStatusCount.rejected },
+        ],
+      };
+      }
     },
-    enabled: user?.role === 'admin' || user?.role === 'hr', // Chỉ admin và HR mới có quyền xem stats
-    retry: false,
   });
 
-  const { data: leaves } = useQuery({
-    queryKey: ['pendingLeaves'],
-    queryFn: async () => {
-      const response = await api.get('/leaves?status=pending&limit=5');
-      return response.data;
+  const COLORS = ['#6366f1', '#8b5cf6', '#a855f7', '#ec4899', '#f59e0b', '#10b981'];
+
+  const statsCards = [
+    {
+      title: 'Tổng Nhân viên',
+      value: stats?.totalEmployees || 0,
+      icon: '👥',
+      gradient: 'from-blue-500 to-blue-600',
+      bgGradient: 'from-blue-50 to-blue-100',
+      iconBg: 'bg-blue-500',
+      change: '+12%',
     },
-    retry: false,
-  });
+    {
+      title: 'Nhân viên Hoạt động',
+      value: stats?.activeEmployees || 0,
+      icon: '✅',
+      gradient: 'from-emerald-500 to-emerald-600',
+      bgGradient: 'from-emerald-50 to-emerald-100',
+      iconBg: 'bg-emerald-500',
+    },
+    {
+      title: 'Phòng ban',
+      value: stats?.totalDepartments || 0,
+      icon: '🏢',
+      gradient: 'from-purple-500 to-purple-600',
+      bgGradient: 'from-purple-50 to-purple-100',
+      iconBg: 'bg-purple-500',
+    },
+    {
+      title: 'Đơn Nghỉ phép Chờ duyệt',
+      value: stats?.pendingLeaves || 0,
+      icon: '📅',
+      gradient: 'from-amber-500 to-amber-600',
+      bgGradient: 'from-amber-50 to-amber-100',
+      iconBg: 'bg-amber-500',
+    },
+  ];
 
-  const statsData = stats?.data;
-
-  // Prepare chart data
-  const departmentChartData = statsData?.byDepartment?.map((dept) => ({
-    name: dept.name.length > 10 ? dept.name.substring(0, 10) + '...' : dept.name,
-    fullName: dept.name,
-    count: dept.count,
-  })) || [];
-
-  const statusChartData = statsData
+  const employeeStatusData = stats
     ? [
-        { name: 'Đang làm việc', value: statsData.active, color: '#10b981' },
-        { name: 'Không hoạt động', value: statsData.inactive, color: '#f59e0b' },
-        { name: 'Đã nghỉ việc', value: statsData.terminated, color: '#ef4444' },
-      ].filter((item) => item.value > 0)
+        { name: 'Hoạt động', value: stats.activeEmployees },
+        { name: 'Không hoạt động', value: stats.inactiveEmployees },
+        { name: 'Đã nghỉ việc', value: stats.terminatedEmployees },
+      ]
     : [];
 
   return (
-    <div className="space-y-6 fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600 mt-1">Tổng quan hệ thống quản lý nhân sự</p>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <Activity size={16} />
-          <span>Real-time</span>
-        </div>
+    <div>
+      <div className="mb-8">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
+          Dashboard
+        </h1>
+        <p className="text-slate-600 text-lg">
+          Chào mừng, <span className="font-semibold text-slate-900">{user?.email}</span>! Vai trò:{' '}
+          <span className="capitalize font-semibold text-primary-600">{user?.role}</span>
+        </p>
       </div>
 
-      {/* Stats Cards - Chỉ hiển thị cho admin và HR */}
-      {(user?.role === 'admin' || user?.role === 'hr') && (
+      {isLoading ? (
+        <div className="text-center py-12">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+          <p className="mt-4 text-slate-600">Đang tải dữ liệu...</p>
+        </div>
+      ) : (
         <>
-          {!statsData ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <SkeletonCard key={i} />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="card-hover group">
+          {/* Statistics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {statsCards.map((card, index) => (
+              <div
+                key={index}
+                className={`bg-gradient-to-br ${card.bgGradient} rounded-2xl shadow-lg p-6 border border-white/50 hover:shadow-xl transition-all duration-300 animate-slideUp hover:-translate-y-1`}
+                style={{ animationDelay: `${index * 0.1}s` }}
+              >
                 <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors">Tổng nhân viên</p>
-                    <p className="text-3xl font-bold text-gray-900 mt-2 bounce-in">{statsData?.total || 0}</p>
-                    <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                      <TrendingUp size={12} />
-                      Tất cả phòng ban
-                    </p>
+                  <div className="flex-1">
+                    <p className="text-slate-600 text-sm font-medium mb-2">{card.title}</p>
+                    <p className="text-4xl font-bold text-slate-900 mb-1">{card.value}</p>
+                    {card.change && (
+                      <p className="text-xs text-emerald-600 font-semibold mt-1">
+                        {card.change} so với tháng trước
+                      </p>
+                    )}
                   </div>
-                  <div className="bg-primary-100 p-3 rounded-full group-hover:bg-primary-200 transition-colors">
-                    <Users className="text-primary-600" size={24} />
+                  <div className={`${card.iconBg} text-white p-4 rounded-2xl shadow-lg text-3xl transform rotate-6 hover:rotate-12 transition-transform duration-300`}>
+                    {card.icon}
                   </div>
                 </div>
               </div>
+            ))}
+          </div>
 
-              <div className="card-hover group">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors">Đang làm việc</p>
-                    <p className="text-3xl font-bold text-green-600 mt-2 bounce-in">{statsData?.active || 0}</p>
-                    <p className="text-xs text-gray-500 mt-1">Nhân viên active</p>
-                  </div>
-                  <div className="bg-green-100 p-3 rounded-full group-hover:bg-green-200 transition-colors">
-                    <Users className="text-green-600" size={24} />
-                  </div>
-                </div>
+          {/* Charts Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Employee Status Chart */}
+            {employeeStatusData.length > 0 && (
+              <div className="card-premium">
+                <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center">
+                  <span className="w-1 h-6 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full mr-3"></span>
+                  Trạng thái Nhân viên
+                </h2>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={employeeStatusData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                    >
+                      {employeeStatusData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
+            )}
 
-              <div className="card-hover group">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors">Nghỉ phép chờ duyệt</p>
-                    <p className="text-3xl font-bold text-yellow-600 mt-2 bounce-in">
-                      {leaves?.data?.length || 0}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">Cần xử lý</p>
-                  </div>
-                  <div className="bg-yellow-100 p-3 rounded-full group-hover:bg-yellow-200 transition-colors">
-                    <Calendar className="text-yellow-600" size={24} />
-                  </div>
-                </div>
+            {/* Leave Status Chart */}
+            {stats?.leaveStatusData && stats.leaveStatusData.length > 0 && (
+              <div className="card-premium">
+                <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center">
+                  <span className="w-1 h-6 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full mr-3"></span>
+                  Trạng thái Đơn Nghỉ phép
+                </h2>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={stats.leaveStatusData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="name" stroke="#64748b" />
+                    <YAxis stroke="#64748b" />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: '#fff', 
+                        border: '1px solid #e2e8f0', 
+                        borderRadius: '12px',
+                        boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                      }} 
+                    />
+                    <Bar dataKey="value" fill="#6366f1" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
+            )}
+          </div>
 
-              <div className="card-hover group">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors">Phòng ban</p>
-                    <p className="text-3xl font-bold text-blue-600 mt-2 bounce-in">
-                      {statsData?.byDepartment?.length || 0}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-1">Tổng số phòng ban</p>
-                  </div>
-                  <div className="bg-blue-100 p-3 rounded-full group-hover:bg-blue-200 transition-colors">
-                    <Building2 className="text-blue-600" size={24} />
-                  </div>
-                </div>
-              </div>
+          {/* Department Distribution */}
+          {stats?.departmentChart && stats.departmentChart.length > 0 && (
+            <div className="card-premium mb-8">
+              <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center">
+                <span className="w-1 h-6 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full mr-3"></span>
+                Phân bố Nhân viên theo Phòng ban
+              </h2>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={stats.departmentChart}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="name" stroke="#64748b" />
+                  <YAxis stroke="#64748b" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#fff', 
+                      border: '1px solid #e2e8f0', 
+                      borderRadius: '12px',
+                      boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                    }} 
+                  />
+                  <Bar dataKey="value" fill="#8b5cf6" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             </div>
           )}
 
-          {/* Charts Section */}
-          {statsData && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-              {/* Department Distribution Chart */}
-              {departmentChartData.length > 0 && (
-                <div className="card">
-                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <Building2 size={20} className="text-primary-600" />
-                    Phân bố nhân viên theo phòng ban
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="card-premium">
+              <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center">
+                <span className="w-1 h-5 bg-gradient-to-b from-blue-500 to-blue-600 rounded-full mr-2"></span>
+                Tổng quan Hệ thống
+              </h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                  <span className="text-slate-600">Tổng số Nhân viên</span>
+                  <span className="font-bold text-slate-900 text-lg">{stats?.totalEmployees || 0}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                  <span className="text-slate-600">Phòng ban</span>
+                  <span className="font-bold text-slate-900 text-lg">{stats?.totalDepartments || 0}</span>
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-slate-600">Đơn Nghỉ phép</span>
+                  <span className="font-bold text-slate-900 text-lg">{stats?.totalLeaves || 0}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="card-premium">
+              <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center">
+                <span className="w-1 h-5 bg-gradient-to-b from-amber-500 to-amber-600 rounded-full mr-2"></span>
+                Đơn Nghỉ phép
+              </h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                  <span className="text-slate-600">Chờ duyệt</span>
+                  <span className="font-bold text-amber-600 text-lg">{stats?.pendingLeaves || 0}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                  <span className="text-slate-600">Đã duyệt</span>
+                  <span className="font-bold text-emerald-600 text-lg">{stats?.approvedLeaves || 0}</span>
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-slate-600">Từ chối</span>
+                  <span className="font-bold text-rose-600 text-lg">{stats?.rejectedLeaves || 0}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="card-premium">
+              <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center">
+                <span className="w-1 h-5 bg-gradient-to-b from-emerald-500 to-emerald-600 rounded-full mr-2"></span>
+                Nhân viên
+              </h3>
+              <div className="space-y-3">
+                <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                  <span className="text-slate-600">Hoạt động</span>
+                  <span className="font-bold text-emerald-600 text-lg">{stats?.activeEmployees || 0}</span>
+                </div>
+                <div className="flex justify-between items-center py-2 border-b border-slate-100">
+                  <span className="text-slate-600">Không hoạt động</span>
+                  <span className="font-bold text-slate-600 text-lg">{stats?.inactiveEmployees || 0}</span>
+                </div>
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-slate-600">Đã nghỉ việc</span>
+                  <span className="font-bold text-rose-600 text-lg">{stats?.terminatedEmployees || 0}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Notifications Section */}
+          {(stats?.expiringContracts?.length > 0 || stats?.upcomingBirthdays?.length > 0) && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+              {/* Expiring Contracts */}
+              {stats?.expiringContracts && stats.expiringContracts.length > 0 && (
+                <div className="card-premium border-l-4 border-l-amber-500">
+                  <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center">
+                    <AlertTriangle className="text-amber-500 mr-2" size={20} />
+                    Hợp đồng sắp hết hạn
                   </h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={departmentChartData}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip
-                        formatter={(value: any, name: string, props: any) => [
-                          `${value} nhân viên`,
-                          props.payload.fullName,
-                        ]}
-                      />
-                      <Bar dataKey="count" fill="#3b82f6" radius={[8, 8, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {stats.expiringContracts.map((contract: any) => (
+                      <div
+                        key={contract._id}
+                        className="p-3 bg-amber-50 rounded-lg border border-amber-200 hover:bg-amber-100 transition-colors"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="font-semibold text-slate-900">
+                              {contract.employee?.firstName} {contract.employee?.lastName}
+                            </p>
+                            <p className="text-sm text-slate-600 mt-1">
+                              {contract.department?.name || 'Chưa có phòng ban'}
+                            </p>
+                            <p className="text-xs text-amber-700 mt-1">
+                              Hết hạn: {format(new Date(contract.endDate), 'dd/MM/yyyy')} ({contract.daysRemaining} ngày)
+                            </p>
+                          </div>
+                          <FileText className="text-amber-600" size={20} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
 
-              {/* Status Distribution Pie Chart */}
-              {statusChartData.length > 0 && (
-                <div className="card">
-                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-                    <Activity size={20} className="text-primary-600" />
-                    Trạng thái nhân viên
+              {/* Upcoming Birthdays */}
+              {stats?.upcomingBirthdays && stats.upcomingBirthdays.length > 0 && (
+                <div className="card-premium border-l-4 border-l-pink-500">
+                  <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center">
+                    <Cake className="text-pink-500 mr-2" size={20} />
+                    Sinh nhật sắp tới 🎂
                   </h3>
-                  <ResponsiveContainer width="100%" height={300}>
-                    <PieChart>
-                      <Pie
-                        data={statusChartData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
+                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    {stats.upcomingBirthdays.map((birthday: any) => (
+                      <div
+                        key={birthday._id}
+                        className="p-3 bg-pink-50 rounded-lg border border-pink-200 hover:bg-pink-100 transition-colors"
                       >
-                        {statusChartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <p className="font-semibold text-slate-900">
+                              {birthday.firstName} {birthday.lastName}
+                            </p>
+                            <p className="text-sm text-slate-600 mt-1">
+                              {birthday.department?.name || 'Chưa có phòng ban'}
+                            </p>
+                            <p className="text-xs text-pink-700 mt-1">
+                              {format(new Date(birthday.birthday), 'dd/MM/yyyy', { locale: vi })} ({birthday.daysUntil === 0 ? 'Hôm nay' : `${birthday.daysUntil} ngày nữa`})
+                            </p>
+                          </div>
+                          <Cake className="text-pink-600" size={20} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
           )}
         </>
-      )}
-
-      {/* Dashboard cho Manager */}
-      {user?.role === 'manager' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div className="card-hover group">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors">Nghỉ phép chờ duyệt</p>
-                <p className="text-3xl font-bold text-yellow-600 mt-2 bounce-in">
-                  {leaves?.data?.length || 0}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">Trong phòng ban của bạn</p>
-              </div>
-              <div className="bg-yellow-100 p-3 rounded-full group-hover:bg-yellow-200 transition-colors">
-                <Calendar className="text-yellow-600" size={24} />
-              </div>
-            </div>
-          </div>
-
-          <div className="card-hover group">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors">Quản lý phòng ban</p>
-                <p className="text-lg font-semibold text-gray-900 mt-2">
-                  Trưởng phòng
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  Xem và duyệt đơn nghỉ phép
-                </p>
-              </div>
-              <div className="bg-primary-100 p-3 rounded-full group-hover:bg-primary-200 transition-colors">
-                <Users className="text-primary-600" size={24} />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Dashboard cho Employee */}
-      {user?.role === 'employee' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div className="card-hover group cursor-pointer">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors">Thông tin cá nhân</p>
-                <p className="text-lg font-semibold text-gray-900 mt-2">
-                  Nhân viên
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  Xem và quản lý thông tin của bạn
-                </p>
-              </div>
-              <div className="bg-primary-100 p-3 rounded-full group-hover:bg-primary-200 transition-colors">
-                <Users className="text-primary-600" size={24} />
-              </div>
-            </div>
-          </div>
-
-          <div className="card-hover group cursor-pointer">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors">Nghỉ phép</p>
-                <p className="text-lg font-semibold text-gray-900 mt-2">
-                  Quản lý nghỉ phép
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  Xem và tạo đơn nghỉ phép
-                </p>
-              </div>
-              <div className="bg-yellow-100 p-3 rounded-full group-hover:bg-yellow-200 transition-colors">
-                <Calendar className="text-yellow-600" size={24} />
-              </div>
-            </div>
-          </div>
-
-          <div className="card-hover group cursor-pointer">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 group-hover:text-gray-700 transition-colors">Bảng lương</p>
-                <p className="text-lg font-semibold text-gray-900 mt-2">
-                  Xem lương
-                </p>
-                <p className="text-sm text-gray-500 mt-1">
-                  Xem bảng lương của bạn
-                </p>
-              </div>
-              <div className="bg-green-100 p-3 rounded-full group-hover:bg-green-200 transition-colors">
-                <DollarSign className="text-green-600" size={24} />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Recent Leaves - Hiển thị cho tất cả roles */}
-      {leaves?.data && leaves.data.length > 0 && (
-        <div className="card slide-up">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <Calendar className="text-primary-600" size={20} />
-              Đơn nghỉ phép chờ duyệt
-            </h2>
-            <span className="badge badge-warning">{leaves.data.length} đơn</span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Nhân viên</th>
-                  <th>Loại</th>
-                  <th>Ngày bắt đầu</th>
-                  <th>Ngày kết thúc</th>
-                  <th>Số ngày</th>
-                  <th>Trạng thái</th>
-                </tr>
-              </thead>
-              <tbody>
-                {leaves.data.map((leave: any, index: number) => (
-                  <tr key={leave._id} className="slide-up" style={{ animationDelay: `${index * 0.1}s` }}>
-                    <td>
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
-                          <span className="text-primary-600 font-medium text-xs">
-                            {leave.employee?.firstName?.[0]}{leave.employee?.lastName?.[0]}
-                          </span>
-                        </div>
-                        <div>
-                          {leave.employee?.firstName} {leave.employee?.lastName}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="capitalize">{leave.leaveType}</td>
-                    <td>{new Date(leave.startDate).toLocaleDateString('vi-VN')}</td>
-                    <td>{new Date(leave.endDate).toLocaleDateString('vi-VN')}</td>
-                    <td>
-                      <span className="font-medium">{leave.days} ngày</span>
-                    </td>
-                    <td>
-                      <span className="badge badge-warning">{leave.status}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
       )}
     </div>
   );

@@ -1,31 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
-import api from '../utils/api';
-import { Plus, Edit, Trash2, Search } from 'lucide-react';
-import { format } from 'date-fns';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
-import { Loading } from '../components/Loading';
 import { useConfirm } from '../hooks/useConfirm';
+import api from '../utils/api';
 
 interface Employee {
-  _id: string;
+  _id?: string;
   employeeId: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  dateOfBirth: string;
-  gender: string;
-  department: { name: string };
-  position: { title: string };
-  salary: number;
-  hireDate: string;
-  status: string;
-}
-
-interface EmployeeForm {
   firstName: string;
   lastName: string;
   email: string;
@@ -37,33 +20,47 @@ interface EmployeeForm {
   position: string;
   salary: number;
   hireDate: string;
+  status: 'active' | 'inactive' | 'terminated';
+}
+
+interface EmployeeResponse extends Employee {
+  _id: string;
+  department?: { _id: string; name: string };
+  position?: { _id: string; title: string; name: string };
 }
 
 const Employees: React.FC = () => {
   const { user } = useAuth();
   const { showToast } = useToast();
   const { confirm, ConfirmDialog } = useConfirm();
-  const [search, setSearch] = useState('');
-  const [showModal, setShowModal] = useState(false);
-  const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const queryClient = useQueryClient();
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<EmployeeForm>();
-  
-  const canEdit = user?.role === 'admin' || user?.role === 'hr';
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<EmployeeResponse | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [departmentFilter, setDepartmentFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<Employee>({
+    defaultValues: selectedEmployee || {},
+  });
+
+  // Fetch employees
   const { data: employeesData, isLoading } = useQuery({
-    queryKey: ['employees', search],
+    queryKey: ['employees'],
     queryFn: async () => {
-      const response = await api.get(`/employees?search=${search}`);
-      return response.data;
+      const response = await api.get('/employees');
+      return (response.data.data || []) as EmployeeResponse[];
     },
   });
 
+  // Fetch departments and positions for form
   const { data: departments } = useQuery({
     queryKey: ['departments'],
     queryFn: async () => {
       const response = await api.get('/departments');
-      return response.data;
+      return response.data.data || [];
     },
   });
 
@@ -71,272 +68,513 @@ const Employees: React.FC = () => {
     queryKey: ['positions'],
     queryFn: async () => {
       const response = await api.get('/positions');
-      return response.data;
+      return response.data.data || [];
     },
   });
 
-  const createMutation = useMutation({
-    mutationFn: async (data: EmployeeForm) => {
-      const response = await api.post('/employees', data);
-      return response.data;
+  // Filter and search employees
+  const filteredEmployees = useMemo(() => {
+    if (!employeesData) return [];
+    
+    return employeesData.filter((employee) => {
+      const matchesSearch =
+        searchTerm === '' ||
+        employee.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        employee.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        employee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        employee.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === 'all' || employee.status === statusFilter;
+      const matchesDepartment =
+        departmentFilter === 'all' || employee.department?._id === departmentFilter;
+
+      return matchesSearch && matchesStatus && matchesDepartment;
+    });
+  }, [employeesData, searchTerm, statusFilter, departmentFilter]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage);
+  const paginatedEmployees = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredEmployees.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredEmployees, currentPage]);
+
+  // Create/Update mutation
+  const saveMutation = useMutation({
+    mutationFn: async (data: Employee) => {
+      if (selectedEmployee?._id) {
+        return api.put(`/employees/${selectedEmployee._id}`, data);
+      } else {
+        return api.post('/employees', data);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employees'] });
-      setShowModal(false);
+      showToast(selectedEmployee ? 'Cập nhật nhân viên thành công' : 'Thêm nhân viên thành công', 'success');
+      setIsModalOpen(false);
       reset();
-      showToast('Đã tạo nhân viên thành công!', 'success');
+      setSelectedEmployee(null);
     },
     onError: (error: any) => {
-      showToast(error.response?.data?.message || 'Có lỗi xảy ra khi tạo nhân viên', 'error');
+      showToast(error.response?.data?.message || 'Thao tác thất bại', 'error');
     },
   });
 
-  const updateMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: EmployeeForm }) => {
-      const response = await api.put(`/employees/${id}`, data);
-      return response.data;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['employees'] });
-      setShowModal(false);
-      setEditingEmployee(null);
-      reset();
-      showToast('Đã cập nhật nhân viên thành công!', 'success');
-    },
-    onError: (error: any) => {
-      showToast(error.response?.data?.message || 'Có lỗi xảy ra khi cập nhật nhân viên', 'error');
-    },
-  });
-
+  // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
       const response = await api.delete(`/employees/${id}`);
       return response.data;
     },
     onSuccess: (data) => {
-      // Invalidate tất cả queries liên quan để cập nhật UI
-      // Không invalidate positions vì không liên quan đến việc xóa employee
       queryClient.invalidateQueries({ queryKey: ['employees'] });
       queryClient.invalidateQueries({ queryKey: ['salaries'] });
-      queryClient.invalidateQueries({ queryKey: ['attendances'] });
       queryClient.invalidateQueries({ queryKey: ['leaves'] });
       queryClient.invalidateQueries({ queryKey: ['employeeStats'] });
-      showToast(data?.message || 'Đã xóa nhân viên và tất cả dữ liệu liên quan thành công!', 'success');
+      queryClient.invalidateQueries({ queryKey: ['departments'] });
+      showToast(data?.message || 'Xóa nhân viên và tất cả dữ liệu liên quan thành công', 'success');
     },
     onError: (error: any) => {
-      console.error('Error deleting employee:', error);
-      const errorMessage = error.response?.data?.message || error.message || 'Có lỗi xảy ra khi xóa nhân viên';
-      showToast(errorMessage, 'error');
+      showToast(error.response?.data?.message || 'Xóa nhân viên thất bại', 'error');
     },
   });
 
-  const onSubmit = (data: EmployeeForm) => {
-    if (editingEmployee) {
-      updateMutation.mutate({ id: editingEmployee._id, data });
-    } else {
-      createMutation.mutate(data);
-    }
+  const onSubmit = (data: Employee) => {
+    saveMutation.mutate(data);
   };
 
-  const handleEdit = (employee: Employee) => {
-    setEditingEmployee(employee);
+  const handleEdit = (employee: EmployeeResponse) => {
+    setSelectedEmployee(employee);
     reset({
+      employeeId: employee.employeeId,
       firstName: employee.firstName,
       lastName: employee.lastName,
       email: employee.email,
       phone: employee.phone,
-      dateOfBirth: format(new Date(employee.dateOfBirth), 'yyyy-MM-dd'),
-      gender: employee.gender as any,
-      address: '',
-      department: (employee.department as any)._id || employee.department,
-      position: (employee.position as any)._id || employee.position,
+      dateOfBirth: employee.dateOfBirth ? new Date(employee.dateOfBirth).toISOString().split('T')[0] : '',
+      gender: employee.gender,
+      address: employee.address,
+      department: employee.department?._id || employee.department as any,
+      position: employee.position?._id || employee.position as any,
       salary: employee.salary,
-      hireDate: format(new Date(employee.hireDate), 'yyyy-MM-dd'),
+      hireDate: employee.hireDate ? new Date(employee.hireDate).toISOString().split('T')[0] : '',
+      status: employee.status,
     });
-    setShowModal(true);
+    setIsModalOpen(true);
   };
 
-  const handleCloseModal = () => {
-    setShowModal(false);
-    setEditingEmployee(null);
-    reset();
-  };
-
-  const handleDelete = async (employeeId: string, employeeName: string) => {
+  const handleDelete = async (employee: EmployeeResponse) => {
     const confirmed = await confirm({
-      title: 'Xác nhận xóa nhân viên',
-      message: `Bạn có chắc chắn muốn xóa nhân viên "${employeeName}" không? Hành động này không thể hoàn tác.`,
+      title: 'Xác nhận xóa',
+      message: `Bạn có chắc muốn xóa nhân viên ${employee.firstName} ${employee.lastName}?`,
       confirmText: 'Xóa',
       cancelText: 'Hủy',
       type: 'danger',
     });
-    
     if (confirmed) {
-      deleteMutation.mutate(employeeId);
+      deleteMutation.mutate(employee._id);
     }
   };
 
+  const handleAdd = () => {
+    setSelectedEmployee(null);
+    reset({
+      employeeId: '',
+      firstName: '',
+      lastName: '',
+      email: '',
+      phone: '',
+      dateOfBirth: '',
+      gender: 'male',
+      address: '',
+      department: '',
+      position: '',
+      salary: 0,
+      hireDate: new Date().toISOString().split('T')[0],
+      status: 'active',
+    });
+    setIsModalOpen(true);
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('vi-VN', {
+      style: 'currency',
+      currency: 'VND',
+    }).format(amount);
+  };
+
+  const getStatusBadge = (status: string) => {
+    const statusMap: Record<string, { label: string; color: string }> = {
+      active: { label: 'Hoạt động', color: 'bg-green-100 text-green-800' },
+      inactive: { label: 'Không hoạt động', color: 'bg-gray-100 text-gray-800' },
+      terminated: { label: 'Đã nghỉ việc', color: 'bg-red-100 text-red-800' },
+    };
+    const statusInfo = statusMap[status] || statusMap.inactive;
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusInfo.color}`}>
+        {statusInfo.label}
+      </span>
+    );
+  };
+
+  const exportToCSV = () => {
+    const headers = ['Mã NV', 'Họ Tên', 'Email', 'SĐT', 'Phòng ban', 'Chức vụ', 'Lương', 'Trạng thái'];
+    const rows = filteredEmployees.map((emp) => [
+      emp.employeeId,
+      `${emp.firstName} ${emp.lastName}`,
+      emp.email,
+      emp.phone,
+      emp.department?.name || '',
+      emp.position?.title || emp.position?.name || '',
+      emp.salary?.toString() || '0',
+      emp.status,
+    ]);
+
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(',')),
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `employees_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+    showToast('Xuất file CSV thành công', 'success');
+  };
+
+  const isAdmin = user?.role === 'admin';
+  const isHR = user?.role === 'hr';
+  const isManager = user?.role === 'manager';
+  const canSeeSalary = isAdmin || isHR || isManager;
+  const canEdit = isAdmin;
+
+  if (isLoading) {
+    return (
+      <div className="text-center py-12">
+        <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <p className="mt-4 text-gray-600">Đang tải dữ liệu...</p>
+      </div>
+    );
+  }
+
+  const employees = employeesData || [];
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Quản lý Nhân viên</h1>
-          <p className="text-gray-600 mt-1">Danh sách và thông tin nhân viên</p>
-        </div>
-        {canEdit && (
-          <button
-            onClick={() => setShowModal(true)}
-            className="btn btn-primary flex items-center"
-          >
-            <Plus size={20} className="mr-2" />
-            Thêm nhân viên
-          </button>
-        )}
-      </div>
-
-      {/* Search */}
-      <div className="card">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-          <input
-            type="text"
-            placeholder="Tìm kiếm nhân viên..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="input pl-10"
-          />
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Quản lý Nhân viên</h1>
+        <div className="flex space-x-3">
+          {canEdit && filteredEmployees.length > 0 && (
+            <button
+              onClick={exportToCSV}
+              className="btn btn-secondary flex items-center space-x-2"
+            >
+              <span>📥</span>
+              <span>Xuất CSV</span>
+            </button>
+          )}
+          {canEdit && (
+            <button onClick={handleAdd} className="btn btn-primary">
+              + Thêm Nhân viên
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Table */}
-      <div className="card">
-        {isLoading ? (
-          <div className="flex justify-center items-center py-12">
-            <Loading size={48} />
+      {/* Search and Filters */}
+      <div className="card-premium p-5 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Tìm kiếm</label>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="input"
+              placeholder="Tên, email, mã NV..."
+            />
           </div>
-        ) : !employeesData?.data || employeesData.data.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            <p>Không có nhân viên nào</p>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="input"
+            >
+              <option value="all">Tất cả</option>
+              <option value="active">Hoạt động</option>
+              <option value="inactive">Không hoạt động</option>
+              <option value="terminated">Đã nghỉ việc</option>
+            </select>
           </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="table">
-              <thead>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Phòng ban</label>
+            <select
+              value={departmentFilter}
+              onChange={(e) => {
+                setDepartmentFilter(e.target.value);
+                setCurrentPage(1);
+              }}
+              className="input"
+            >
+              <option value="all">Tất cả</option>
+              {departments?.map((dept: any) => (
+                <option key={dept._id} value={dept._id}>
+                  {dept.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-end">
+            <button
+              onClick={() => {
+                setSearchTerm('');
+                setStatusFilter('all');
+                setDepartmentFilter('all');
+                setCurrentPage(1);
+              }}
+              className="btn btn-secondary w-full"
+            >
+              🔄 Đặt lại
+            </button>
+          </div>
+        </div>
+        <div className="mt-3 text-sm text-gray-600">
+          Hiển thị {paginatedEmployees.length} / {filteredEmployees.length} nhân viên
+        </div>
+      </div>
+
+      {/* Employees Table */}
+      <div className="card-premium overflow-hidden p-0">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Mã NV
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Họ Tên
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Email
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Phòng ban
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Chức vụ
+                </th>
+                {canSeeSalary && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Lương
+                  </th>
+                )}
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Trạng thái
+                </th>
+                {canEdit && (
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Thao tác
+                  </th>
+                )}
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {paginatedEmployees.length === 0 ? (
                 <tr>
-                  <th>Mã NV</th>
-                  <th>Họ tên</th>
-                  <th>Email</th>
-                  <th>Phòng ban</th>
-                  <th>Chức vụ</th>
-                  <th>Lương</th>
-                  <th>Trạng thái</th>
-                  {canEdit && <th>Thao tác</th>}
+                  <td colSpan={canEdit ? (canSeeSalary ? 8 : 7) : (canSeeSalary ? 7 : 6)} className="px-6 py-8 text-center text-gray-500">
+                    {searchTerm || statusFilter !== 'all' || departmentFilter !== 'all'
+                      ? 'Không tìm thấy nhân viên nào'
+                      : 'Chưa có nhân viên nào'}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {employeesData.data.map((employee: Employee) => (
-                  <tr key={employee._id}>
-                    <td className="font-medium">{employee.employeeId}</td>
-                    <td>
+              ) : (
+                paginatedEmployees.map((employee) => (
+                  <tr key={employee._id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {employee.employeeId}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {employee.firstName} {employee.lastName}
                     </td>
-                    <td>{employee.email}</td>
-                    <td>{(employee.department as any)?.name || employee.department}</td>
-                    <td>{(employee.position as any)?.title || employee.position}</td>
-                    <td>{employee.salary.toLocaleString('vi-VN')} VNĐ</td>
-                    <td>
-                      <span className={`badge ${
-                        employee.status === 'active' ? 'badge-success' :
-                        employee.status === 'inactive' ? 'badge-warning' : 'badge-danger'
-                      }`}>
-                        {employee.status}
-                      </span>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {employee.email}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {employee.department?.name || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {employee.position?.title || employee.position?.name || '-'}
+                    </td>
+                    {canSeeSalary && (
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {formatCurrency(employee.salary || 0)}
+                      </td>
+                    )}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {getStatusBadge(employee.status)}
                     </td>
                     {canEdit && (
-                      <td>
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => handleEdit(employee)}
-                            className="text-primary-600 hover:text-primary-800"
-                          >
-                            <Edit size={18} />
-                          </button>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                         <button
-                          onClick={() => handleDelete(employee._id, `${employee.firstName} ${employee.lastName}`)}
-                          className="text-red-600 hover:text-red-800 transition-colors"
+                          onClick={() => handleEdit(employee)}
+                          className="text-primary-600 hover:text-primary-900 font-medium"
                         >
-                          <Trash2 size={18} />
+                          ✏️ Sửa
                         </button>
-                        </div>
+                        <button
+                          onClick={() => handleDelete(employee)}
+                          className="text-red-600 hover:text-red-900 font-medium"
+                        >
+                          🗑️ Xóa
+                        </button>
                       </td>
                     )}
                   </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-gray-700">
+                Trang <span className="font-medium">{currentPage}</span> /{' '}
+                <span className="font-medium">{totalPages}</span>
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  ‹ Trước
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`btn ${
+                      currentPage === page ? 'btn-primary' : 'btn-secondary'
+                    }`}
+                  >
+                    {page}
+                  </button>
                 ))}
-              </tbody>
-            </table>
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Sau ›
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold mb-4">
-              {editingEmployee ? 'Chỉnh sửa nhân viên' : 'Thêm nhân viên mới'}
+      {/* Employee Form Modal */}
+      {isModalOpen && canEdit && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-100">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+              {selectedEmployee ? 'Sửa Nhân viên' : 'Thêm Nhân viên'}
             </h2>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Mã Nhân viên *
+                  </label>
+                  <input
+                    type="text"
+                    {...register('employeeId', { required: 'Mã nhân viên là bắt buộc' })}
+                    className="input"
+                    placeholder="NV001"
+                  />
+                  {errors.employeeId && (
+                    <p className="text-red-600 text-xs mt-1">{errors.employeeId.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    {...register('email', { required: 'Email là bắt buộc' })}
+                    className="input"
+                    placeholder="email@example.com"
+                  />
+                  {errors.email && (
+                    <p className="text-red-600 text-xs mt-1">{errors.email.message}</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
                     Họ *
                   </label>
-                  <input {...register('firstName', { required: true })} className="input" />
-                  {errors.firstName && <p className="text-red-600 text-sm">Bắt buộc</p>}
+                  <input
+                    type="text"
+                    {...register('firstName', { required: 'Họ là bắt buộc' })}
+                    className="input"
+                  />
+                  {errors.firstName && (
+                    <p className="text-red-600 text-xs mt-1">{errors.firstName.message}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Tên *
                   </label>
-                  <input {...register('lastName', { required: true })} className="input" />
-                  {errors.lastName && <p className="text-red-600 text-sm">Bắt buộc</p>}
+                  <input
+                    type="text"
+                    {...register('lastName', { required: 'Tên là bắt buộc' })}
+                    className="input"
+                  />
+                  {errors.lastName && (
+                    <p className="text-red-600 text-xs mt-1">{errors.lastName.message}</p>
+                  )}
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email *
-                  </label>
-                  <input type="email" {...register('email', { required: true })} className="input" />
-                  {errors.email && <p className="text-red-600 text-sm">Bắt buộc</p>}
-                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Số điện thoại *
                   </label>
-                  <input {...register('phone', { required: true })} className="input" />
-                  {errors.phone && <p className="text-red-600 text-sm">Bắt buộc</p>}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Ngày sinh *
-                  </label>
                   <input
-                    type="date"
-                    {...register('dateOfBirth', { required: true })}
+                    type="tel"
+                    {...register('phone', { required: 'Số điện thoại là bắt buộc' })}
                     className="input"
                   />
-                  {errors.dateOfBirth && <p className="text-red-600 text-sm">Bắt buộc</p>}
+                  {errors.phone && (
+                    <p className="text-red-600 text-xs mt-1">{errors.phone.message}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Giới tính *
                   </label>
-                  <select {...register('gender', { required: true })} className="input">
+                  <select
+                    {...register('gender', { required: 'Giới tính là bắt buộc' })}
+                    className="input"
+                  >
                     <option value="male">Nam</option>
                     <option value="female">Nữ</option>
                     <option value="other">Khác</option>
@@ -348,8 +586,43 @@ const Employees: React.FC = () => {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Địa chỉ *
                 </label>
-                <input {...register('address', { required: true })} className="input" />
-                {errors.address && <p className="text-red-600 text-sm">Bắt buộc</p>}
+                <input
+                  type="text"
+                  {...register('address', { required: 'Địa chỉ là bắt buộc' })}
+                  className="input"
+                />
+                {errors.address && (
+                  <p className="text-red-600 text-xs mt-1">{errors.address.message}</p>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Ngày sinh *
+                  </label>
+                  <input
+                    type="date"
+                    {...register('dateOfBirth', { required: 'Ngày sinh là bắt buộc' })}
+                    className="input"
+                  />
+                  {errors.dateOfBirth && (
+                    <p className="text-red-600 text-xs mt-1">{errors.dateOfBirth.message}</p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Ngày vào làm *
+                  </label>
+                  <input
+                    type="date"
+                    {...register('hireDate', { required: 'Ngày vào làm là bắt buộc' })}
+                    className="input"
+                  />
+                  {errors.hireDate && (
+                    <p className="text-red-600 text-xs mt-1">{errors.hireDate.message}</p>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -357,29 +630,39 @@ const Employees: React.FC = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Phòng ban *
                   </label>
-                  <select {...register('department', { required: true })} className="input">
+                  <select
+                    {...register('department', { required: 'Phòng ban là bắt buộc' })}
+                    className="input"
+                  >
                     <option value="">Chọn phòng ban</option>
-                    {departments?.data?.map((dept: any) => (
+                    {departments?.map((dept: any) => (
                       <option key={dept._id} value={dept._id}>
                         {dept.name}
                       </option>
                     ))}
                   </select>
-                  {errors.department && <p className="text-red-600 text-sm">Bắt buộc</p>}
+                  {errors.department && (
+                    <p className="text-red-600 text-xs mt-1">{errors.department.message}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Chức vụ *
                   </label>
-                  <select {...register('position', { required: true })} className="input">
+                  <select
+                    {...register('position', { required: 'Chức vụ là bắt buộc' })}
+                    className="input"
+                  >
                     <option value="">Chọn chức vụ</option>
-                    {positions?.data?.map((pos: any) => (
+                    {positions?.map((pos: any) => (
                       <option key={pos._id} value={pos._id}>
-                        {pos.title}
+                        {pos.title || pos.name}
                       </option>
                     ))}
                   </select>
-                  {errors.position && <p className="text-red-600 text-sm">Bắt buộc</p>}
+                  {errors.position && (
+                    <p className="text-red-600 text-xs mt-1">{errors.position.message}</p>
+                  )}
                 </div>
               </div>
 
@@ -390,34 +673,44 @@ const Employees: React.FC = () => {
                   </label>
                   <input
                     type="number"
-                    {...register('salary', { required: true, valueAsNumber: true })}
+                    {...register('salary', { required: 'Lương là bắt buộc', min: 0 })}
                     className="input"
+                    min="0"
                   />
-                  {errors.salary && <p className="text-red-600 text-sm">Bắt buộc</p>}
+                  {errors.salary && (
+                    <p className="text-red-600 text-xs mt-1">{errors.salary.message}</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Ngày vào làm *
+                    Trạng thái *
                   </label>
-                  <input
-                    type="date"
-                    {...register('hireDate', { required: true })}
-                    className="input"
-                  />
-                  {errors.hireDate && <p className="text-red-600 text-sm">Bắt buộc</p>}
+                  <select {...register('status')} className="input">
+                    <option value="active">Hoạt động</option>
+                    <option value="inactive">Không hoạt động</option>
+                    <option value="terminated">Đã nghỉ việc</option>
+                  </select>
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-3 pt-4">
+              <div className="flex justify-end space-x-3 pt-4 border-t">
                 <button
                   type="button"
-                  onClick={handleCloseModal}
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    reset();
+                    setSelectedEmployee(null);
+                  }}
                   className="btn btn-secondary"
                 >
                   Hủy
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  {editingEmployee ? 'Cập nhật' : 'Tạo mới'}
+                <button
+                  type="submit"
+                  disabled={saveMutation.isPending}
+                  className="btn btn-primary"
+                >
+                  {saveMutation.isPending ? 'Đang lưu...' : selectedEmployee ? 'Cập nhật' : 'Thêm'}
                 </button>
               </div>
             </form>
@@ -430,4 +723,3 @@ const Employees: React.FC = () => {
 };
 
 export default Employees;
-

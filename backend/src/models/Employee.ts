@@ -9,10 +9,13 @@ export interface IEmployee extends Document {
   dateOfBirth: Date;
   gender: 'male' | 'female' | 'other';
   address: string;
+  cccd?: string; // Căn cước công dân
   department: mongoose.Types.ObjectId;
   position: mongoose.Types.ObjectId;
+  manager?: mongoose.Types.ObjectId; // Quản lý trực tiếp
   salary: number;
   hireDate: Date;
+  contractEndDate?: Date; // Ngày hết hạn hợp đồng
   status: 'active' | 'inactive' | 'terminated';
   avatar?: string;
   emergencyContact?: {
@@ -20,6 +23,18 @@ export interface IEmployee extends Document {
     relationship: string;
     phone: string;
   };
+  skills?: Array<{
+    name: string;
+    level: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+    certificate?: string;
+  }>;
+  workHistory?: Array<{
+    date: Date;
+    type: 'promotion' | 'transfer' | 'salary_change' | 'position_change';
+    description: string;
+    from?: string;
+    to?: string;
+  }>;
 }
 
 const employeeSchema = new Schema<IEmployee>(
@@ -64,6 +79,10 @@ const employeeSchema = new Schema<IEmployee>(
       type: String,
       required: true,
     },
+    cccd: {
+      type: String,
+      trim: true,
+    },
     department: {
       type: Schema.Types.ObjectId,
       ref: 'Department',
@@ -74,6 +93,10 @@ const employeeSchema = new Schema<IEmployee>(
       ref: 'Position',
       required: true,
     },
+    manager: {
+      type: Schema.Types.ObjectId,
+      ref: 'Employee',
+    },
     salary: {
       type: Number,
       required: [true, 'Salary is required'],
@@ -83,6 +106,9 @@ const employeeSchema = new Schema<IEmployee>(
       type: Date,
       required: [true, 'Hire date is required'],
       default: Date.now,
+    },
+    contractEndDate: {
+      type: Date,
     },
     status: {
       type: String,
@@ -97,6 +123,18 @@ const employeeSchema = new Schema<IEmployee>(
       relationship: String,
       phone: String,
     },
+    skills: [{
+      name: { type: String, required: true },
+      level: { type: String, enum: ['beginner', 'intermediate', 'advanced', 'expert'], default: 'beginner' },
+      certificate: String,
+    }],
+    workHistory: [{
+      date: { type: Date, required: true },
+      type: { type: String, enum: ['promotion', 'transfer', 'salary_change', 'position_change'], required: true },
+      description: { type: String, required: true },
+      from: String,
+      to: String,
+    }],
   },
   {
     timestamps: true,
@@ -109,5 +147,8 @@ employeeSchema.index({ department: 1 });
 employeeSchema.index({ position: 1 });
 
 export default mongoose.model<IEmployee>('Employee', employeeSchema);
+
+
+
 
 

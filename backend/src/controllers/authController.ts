@@ -1,192 +1,91 @@
-import { Request, Response } from 'express';
-import jwt from 'jsonwebtoken';
+import { Response } from 'express';
+import jwt, { SignOptions } from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 import User from '../models/User';
-import Employee from '../models/Employee';
 
-const generateToken = (id: string): string => {
-  return jwt.sign(
-    { id }, 
-    (process.env.JWT_SECRET as string) || 'fallback_secret', 
-    {
-      expiresIn: process.env.JWT_EXPIRE || '7d'
-    } as any
-  );
-};
-
-export const register = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { email, password, role, employeeId } = req.body;
-
-    // Check if user exists
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      res.status(400).json({ message: 'User already exists' });
-      return;
-    }
-
-    // Check if employee exists if employeeId is provided
-    if (employeeId) {
-      const employee = await Employee.findById(employeeId);
-      if (!employee) {
-        res.status(400).json({ message: 'Employee not found' });
-        return;
-      }
-    }
-
-    const user = await User.create({
-      email,
-      password,
-      role: role || 'employee',
-      employeeId,
-    });
-
-    const token = generateToken(user._id.toString());
-
-    res.status(201).json({
-      success: true,
-      token,
-      user: {
-        id: user._id,
-        email: user.email,
-        role: user.role,
-      },
-    });
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-export const login = async (req: Request, res: Response): Promise<void> => {
+export const login = async (req: any, res: Response): Promise<void> => {
   try {
     const { email, password } = req.body;
 
+    // Validate input
     if (!email || !password) {
-      res.status(400).json({ message: 'Please provide email and password' });
+      res.status(400).json({ message: 'Email và mật khẩu là bắt buộc' });
       return;
     }
 
-    // Check MongoDB connection
-    const mongoose = require('mongoose');
-    if (mongoose.connection.readyState !== 1) {
-      console.error('MongoDB not connected. ReadyState:', mongoose.connection.readyState);
-      res.status(503).json({ 
-        message: 'Database connection error. Please check MongoDB is running.',
-        error: 'MongoDB not connected'
-      });
-      return;
-    }
+    // Find user (password field is now included by default since we removed select: false)
+    const user = await User.findOne({ email });
 
-    console.log(`🔍 Attempting to find user with email: ${email}`);
-    const user = await User.findOne({ email }).select('+password');
     if (!user) {
-      res.status(401).json({ message: 'Invalid credentials' });
+      res.status(401).json({ message: 'Email hoặc mật khẩu không đúng' });
       return;
     }
 
-    const isMatch = await user.comparePassword(password);
+    // Ensure password exists
+    if (!user.password) {
+      console.error('Password field is missing from user object');
+      console.error('User email:', user.email);
+      console.error('User object keys:', Object.keys(user.toObject()));
+      res.status(500).json({ message: 'Lỗi xác thực: không tìm thấy mật khẩu' });
+      return;
+    }
+
+    // Check password using bcrypt
+    const isMatch = await bcrypt.compare(password, user.password);
+
     if (!isMatch) {
-      res.status(401).json({ message: 'Invalid credentials' });
+      res.status(401).json({ message: 'Email hoặc mật khẩu không đúng' });
       return;
     }
 
-    const token = generateToken(user._id.toString());
+    // Generate JWT token
+    const jwtSecret: string = process.env.JWT_SECRET || 'fallback_secret';
+    const token = jwt.sign(
+      { id: user._id.toString() },
+      jwtSecret,
+      { expiresIn: process.env.JWT_EXPIRE || '7d' } as SignOptions
+    );
+
+    // Return user data (without password) and token
+    const userData = {
+      id: user._id.toString(),
+      email: user.email,
+      role: user.role,
+      employeeId: user.employeeId,
+    };
 
     res.json({
       success: true,
       token,
-      user: {
-        id: user._id,
-        email: user.email,
-        role: user.role,
-        employeeId: user.employeeId,
-      },
+      user: userData,
     });
   } catch (error: any) {
-    console.error('❌ Login error:', error);
+    console.error('Login error:', error);
     console.error('Error name:', error.name);
     console.error('Error message:', error.message);
-    if (error.stack) {
-      console.error('Stack trace:', error.stack);
-    }
-    
-    // More specific error messages
-    let errorMessage = 'Internal server error';
-    if (error.name === 'MongoServerError' || error.message?.includes('Mongo')) {
-      errorMessage = 'Database connection error. Please check MongoDB.';
-    } else if (error.message) {
-      errorMessage = error.message;
-    }
-    
+    console.error('Error stack:', error.stack);
     res.status(500).json({ 
-      message: errorMessage,
-      error: error.name || 'UnknownError',
-      ...(process.env.NODE_ENV === 'development' && { 
-        details: error.message,
-        stack: error.stack 
-      })
+      message: error.message || 'Lỗi server',
+      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 };
 
-export const getMe = async (req: Request, res: Response): Promise<void> => {
+export const getMe = async (req: any, res: Response): Promise<void> => {
   try {
-    const user = await User.findById((req as any).user.id);
+    // User is already attached by auth middleware
+    const user = await User.findById(req.user.id).select('-password');
+
+    if (!user) {
+      res.status(404).json({ message: 'User not found' });
+      return;
+    }
+
     res.json({
       success: true,
-      user: {
-        id: user?._id,
-        email: user?.email,
-        role: user?.role,
-        employeeId: user?.employeeId,
-      },
+      data: user,
     });
   } catch (error: any) {
     res.status(500).json({ message: error.message });
   }
 };
-
-export const linkEmployee = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const { employeeId } = req.body;
-    const userId = (req as any).user.id;
-
-    if (!employeeId) {
-      res.status(400).json({ message: 'Employee ID is required' });
-      return;
-    }
-
-    // Check if employee exists
-    const employee = await Employee.findById(employeeId);
-    if (!employee) {
-      res.status(404).json({ message: 'Employee not found' });
-      return;
-    }
-
-    // Check if employee is already linked to another user
-    const existingUser = await User.findOne({ employeeId });
-    if (existingUser && existingUser._id.toString() !== userId) {
-      res.status(400).json({ message: 'Employee is already linked to another user' });
-      return;
-    }
-
-    // Update user
-    const user = await User.findByIdAndUpdate(
-      userId,
-      { employeeId },
-      { new: true }
-    );
-
-    res.json({
-      success: true,
-      user: {
-        id: user?._id,
-        email: user?.email,
-        role: user?.role,
-        employeeId: user?.employeeId,
-      },
-    });
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
-  }
-};
-

@@ -3,16 +3,17 @@ import mongoose, { Document, Schema } from 'mongoose';
 export interface IAttendance extends Document {
   employee: mongoose.Types.ObjectId;
   date: Date;
+  shift?: mongoose.Types.ObjectId; // Ca làm việc
   checkIn: Date;
   checkOut?: Date;
-  status: 'present' | 'absent' | 'late' | 'half-day';
-  notes?: string;
+  status: 'present' | 'absent' | 'late' | 'half-day' | 'overtime';
+  workHours?: number;
+  overtimeHours?: number; // Giờ tăng ca
   location?: {
     latitude: number;
     longitude: number;
-    address?: string;
   };
-  workHours?: number; // Số giờ làm việc (tính bằng giờ)
+  notes?: string;
 }
 
 const attendanceSchema = new Schema<IAttendance>(
@@ -25,7 +26,10 @@ const attendanceSchema = new Schema<IAttendance>(
     date: {
       type: Date,
       required: true,
-      default: Date.now,
+    },
+    shift: {
+      type: Schema.Types.ObjectId,
+      ref: 'WorkShift',
     },
     checkIn: {
       type: Date,
@@ -36,21 +40,24 @@ const attendanceSchema = new Schema<IAttendance>(
     },
     status: {
       type: String,
-      enum: ['present', 'absent', 'late', 'half-day'],
+      enum: ['present', 'absent', 'late', 'half-day', 'overtime'],
       default: 'present',
-    },
-    notes: {
-      type: String,
-    },
-    location: {
-      latitude: Number,
-      longitude: Number,
-      address: String,
     },
     workHours: {
       type: Number,
       min: 0,
-      max: 24,
+    },
+    overtimeHours: {
+      type: Number,
+      min: 0,
+      default: 0,
+    },
+    location: {
+      latitude: Number,
+      longitude: Number,
+    },
+    notes: {
+      type: String,
     },
   },
   {
@@ -58,16 +65,14 @@ const attendanceSchema = new Schema<IAttendance>(
   }
 );
 
-// Index để đảm bảo mỗi nhân viên chỉ có 1 bản ghi chấm công mỗi ngày
 attendanceSchema.index({ employee: 1, date: 1 }, { unique: true });
-attendanceSchema.index({ date: 1 });
 attendanceSchema.index({ employee: 1 });
+attendanceSchema.index({ date: 1 });
 
-// Tính toán workHours trước khi save
 attendanceSchema.pre('save', function (next) {
   if (this.checkIn && this.checkOut) {
     const diffTime = this.checkOut.getTime() - this.checkIn.getTime();
-    this.workHours = Math.round((diffTime / (1000 * 60 * 60)) * 100) / 100; // Làm tròn 2 chữ số
+    this.workHours = Math.round((diffTime / (1000 * 60 * 60)) * 100) / 100;
   }
   next();
 });

@@ -23,3 +23,6 @@ router.delete('/:id', adminOnly, deleteSalary);
 export default router;
 
 
+
+
+

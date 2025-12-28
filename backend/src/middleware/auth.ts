@@ -15,7 +15,8 @@ export const auth = async (req: AuthRequest, res: Response, next: NextFunction):
       return;
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret') as any;
+    const jwtSecret: string = process.env.JWT_SECRET || 'fallback_secret';
+    const decoded = jwt.verify(token, jwtSecret) as any;
     const user = await User.findById(decoded.id).select('-password');
 
     if (!user) {

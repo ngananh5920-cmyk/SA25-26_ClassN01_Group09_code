@@ -1,14 +1,13 @@
 import express from 'express';
-import { register, login, getMe, linkEmployee } from '../controllers/authController';
+import { login, getMe } from '../controllers/authController';
 import { auth } from '../middleware/auth';
 
 const router = express.Router();
 
-router.post('/register', register);
+// Public routes (no auth required)
 router.post('/login', login);
+
+// Protected routes (auth required)
 router.get('/me', auth, getMe);
-router.put('/link-employee', auth, linkEmployee);
 
 export default router;
-
-

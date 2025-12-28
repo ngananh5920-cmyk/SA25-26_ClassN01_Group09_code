@@ -65,3 +65,6 @@ leaveSchema.index({ status: 1 });
 export default mongoose.model<ILeave>('Leave', leaveSchema);
 
 
+
+
+
