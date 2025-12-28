@@ -97,3 +97,4 @@ kpiSchema.index({ status: 1 });
 
 export default mongoose.model<IKPI>('KPI', kpiSchema);
 
+

@@ -184,3 +184,4 @@ export const getMyTrainings = async (req: AuthRequest, res: Response): Promise<v
   }
 };
 
+

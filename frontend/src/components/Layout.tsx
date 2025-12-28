@@ -26,6 +26,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { path: '/positions', label: 'Chức vụ', icon: '💼', roles: ['admin', 'hr'] },
     { path: '/leaves', label: 'Nghỉ phép', icon: '📅', roles: ['admin', 'hr', 'manager', 'employee'] },
     { path: '/salaries', label: 'Lương', icon: '💰', roles: ['admin', 'hr', 'employee'] },
+    { path: '/recruitment', label: 'Tuyển dụng', icon: '🎯', roles: ['admin', 'hr'] },
+    { path: '/kpis', label: 'Đánh giá & KPI', icon: '📊', roles: ['admin', 'hr', 'manager', 'employee'] },
+    { path: '/training', label: 'Đào tạo', icon: '🎓', roles: ['admin', 'hr', 'manager', 'employee'] },
+    { path: '/announcements', label: 'Thông báo', icon: '📢', roles: ['admin', 'hr', 'manager', 'employee'] },
   ].filter((item) => item.roles.includes(user?.role || ''));
 
   const isActive = (path: string) => {

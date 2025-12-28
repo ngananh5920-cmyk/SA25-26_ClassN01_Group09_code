@@ -79,3 +79,4 @@ attendanceSchema.pre('save', function (next) {
 
 export default mongoose.model<IAttendance>('Attendance', attendanceSchema);
 
+

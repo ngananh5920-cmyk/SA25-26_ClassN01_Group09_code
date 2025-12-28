@@ -69,3 +69,4 @@ contractSchema.index({ endDate: 1, status: 1 }); // For finding expiring contrac
 
 export default mongoose.model<IContract>('Contract', contractSchema);
 
+

@@ -125,3 +125,4 @@ trainingEnrollmentSchema.index({ employee: 1, status: 1 });
 export const Training = mongoose.model<ITraining>('Training', trainingSchema);
 export const TrainingEnrollment = mongoose.model<ITrainingEnrollment>('TrainingEnrollment', trainingEnrollmentSchema);
 
+

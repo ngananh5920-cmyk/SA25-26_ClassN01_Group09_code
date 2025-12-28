@@ -68,3 +68,4 @@ announcementSchema.index({ expiryDate: 1 });
 
 export default mongoose.model<IAnnouncement>('Announcement', announcementSchema);
 
+

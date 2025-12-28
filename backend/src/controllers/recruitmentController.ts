@@ -187,3 +187,4 @@ export const deleteCandidate = async (req: AuthRequest, res: Response): Promise<
   }
 };
 
+

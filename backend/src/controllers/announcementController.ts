@@ -20,6 +20,7 @@ export const getAnnouncements = async (req: AuthRequest, res: Response): Promise
         query.$or = [
           { targetAudience: 'all' },
           { targetAudience: employee.department },
+          { targetAudience: { $in: [employee.department] } }, // Support array format
         ];
       } else {
         query.targetAudience = 'all';
@@ -28,12 +29,22 @@ export const getAnnouncements = async (req: AuthRequest, res: Response): Promise
       query.targetAudience = 'all';
     }
 
-    // Filter expired announcements
+    // Filter expired announcements - combine with $and if $or exists
     const now = new Date();
-    query.$or = [
+    const expiryConditions = [
       { expiryDate: { $exists: false } },
       { expiryDate: { $gt: now } },
     ];
+
+    if (query.$or) {
+      query.$and = [
+        { $or: query.$or },
+        { $or: expiryConditions },
+      ];
+      delete query.$or;
+    } else {
+      query.$or = expiryConditions;
+    }
 
     const announcements = await Announcement.find(query)
       .populate('createdBy', 'email')
@@ -142,4 +153,5 @@ export const deleteAnnouncement = async (req: AuthRequest, res: Response): Promi
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 

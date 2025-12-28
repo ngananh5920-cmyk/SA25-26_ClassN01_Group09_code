@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
+import { useConfirm } from '../hooks/useConfirm';
 import api from '../utils/api';
 import { Plus, Edit, Trash2, Bell, AlertCircle, Info, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
@@ -20,9 +21,19 @@ interface Announcement {
 const Announcements: React.FC = () => {
   const { user } = useAuth();
   const { showToast } = useToast();
+  const { confirm, ConfirmDialog } = useConfirm();
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedAnnouncement, setSelectedAnnouncement] = useState<Announcement | null>(null);
+  const [formData, setFormData] = useState({
+    title: '',
+    content: '',
+    type: 'company' as 'company' | 'news' | 'event' | 'policy',
+    priority: 'normal' as 'low' | 'normal' | 'high' | 'urgent',
+    publishDate: format(new Date(), 'yyyy-MM-dd'),
+    expiryDate: '',
+    status: 'published' as 'draft' | 'published' | 'archived',
+  });
 
   const isAdmin = user?.role === 'admin';
   const isHR = user?.role === 'hr';
@@ -35,6 +46,94 @@ const Announcements: React.FC = () => {
       return response.data.data || [];
     },
   });
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const submitData = {
+        ...data,
+        publishDate: data.publishDate ? new Date(data.publishDate) : new Date(),
+        expiryDate: data.expiryDate ? new Date(data.expiryDate) : undefined,
+      };
+      if (selectedAnnouncement) {
+        return await api.put(`/announcements/${selectedAnnouncement._id}`, submitData);
+      } else {
+        return await api.post('/announcements', submitData);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['announcements'] });
+      showToast(
+        selectedAnnouncement ? 'Cập nhật thông báo thành công' : 'Tạo thông báo thành công',
+        'success'
+      );
+      setIsModalOpen(false);
+      resetForm();
+    },
+    onError: (error: any) => {
+      showToast(error.response?.data?.message || 'Thao tác thất bại', 'error');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(`/announcements/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['announcements'] });
+      showToast('Xóa thông báo thành công', 'success');
+    },
+    onError: (error: any) => {
+      showToast(error.response?.data?.message || 'Xóa thất bại', 'error');
+    },
+  });
+
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      content: '',
+      type: 'company',
+      priority: 'normal',
+      publishDate: format(new Date(), 'yyyy-MM-dd'),
+      expiryDate: '',
+      status: 'published',
+    });
+    setSelectedAnnouncement(null);
+  };
+
+  const handleEdit = (announcement: Announcement) => {
+    setSelectedAnnouncement(announcement);
+    setFormData({
+      title: announcement.title,
+      content: announcement.content,
+      type: announcement.type,
+      priority: announcement.priority,
+      publishDate: format(new Date(announcement.publishDate), 'yyyy-MM-dd'),
+      expiryDate: announcement.expiryDate
+        ? format(new Date(announcement.expiryDate), 'yyyy-MM-dd')
+        : '',
+      status: announcement.status,
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (announcement: Announcement) => {
+    const confirmed = await confirm({
+      title: 'Xác nhận xóa',
+      message: `Bạn có chắc chắn muốn xóa thông báo "${announcement.title}"?`,
+      confirmText: 'Xóa',
+      cancelText: 'Hủy',
+      type: 'danger',
+    });
+
+    if (confirmed) {
+      deleteMutation.mutate(announcement._id);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveMutation.mutate(formData);
+  };
 
   const getPriorityBadge = (priority: string) => {
     const priorityMap: Record<string, { label: string; color: string }> = {
@@ -83,7 +182,10 @@ const Announcements: React.FC = () => {
         <h1 className="text-3xl font-bold text-gray-800">Thông báo & Nội bộ</h1>
         {canEdit && (
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => {
+              resetForm();
+              setIsModalOpen(true);
+            }}
             className="btn btn-primary flex items-center gap-2"
           >
             <Plus size={20} /> Tạo Thông báo
@@ -110,11 +212,17 @@ const Announcements: React.FC = () => {
                   </div>
                   {canEdit && (
                     <div className="flex gap-2">
-                      <button className="text-primary-600 hover:text-primary-900">
+                      <button
+                        onClick={() => handleEdit(announcement)}
+                        className="text-primary-600 hover:text-primary-900"
+                      >
                         <Edit size={18} />
                       </button>
                       {isAdmin && (
-                        <button className="text-red-600 hover:text-red-900">
+                        <button
+                          onClick={() => handleDelete(announcement)}
+                          className="text-red-600 hover:text-red-900"
+                        >
                           <Trash2 size={18} />
                         </button>
                       )}
@@ -134,9 +242,157 @@ const Announcements: React.FC = () => {
           <p className="text-gray-600">Chưa có thông báo nào</p>
         </div>
       )}
+
+      {/* Announcement Form Modal */}
+      {isModalOpen && canEdit && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+              {selectedAnnouncement ? 'Sửa Thông báo' : 'Tạo Thông báo'}
+            </h2>
+            <form onSubmit={handleSubmit}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tiêu đề <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    className="input w-full"
+                    placeholder="Tiêu đề thông báo"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nội dung <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    required
+                    value={formData.content}
+                    onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                    className="input w-full"
+                    rows={8}
+                    placeholder="Nội dung thông báo"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Loại <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      required
+                      value={formData.type}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          type: e.target.value as 'company' | 'news' | 'event' | 'policy',
+                        })
+                      }
+                      className="input w-full"
+                    >
+                      <option value="company">Thông báo công ty</option>
+                      <option value="news">Tin tức</option>
+                      <option value="event">Sự kiện</option>
+                      <option value="policy">Chính sách</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Độ ưu tiên <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      required
+                      value={formData.priority}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          priority: e.target.value as 'low' | 'normal' | 'high' | 'urgent',
+                        })
+                      }
+                      className="input w-full"
+                    >
+                      <option value="low">Thấp</option>
+                      <option value="normal">Bình thường</option>
+                      <option value="high">Cao</option>
+                      <option value="urgent">Khẩn cấp</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Ngày đăng <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={formData.publishDate}
+                      onChange={(e) => setFormData({ ...formData, publishDate: e.target.value })}
+                      className="input w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Ngày hết hạn</label>
+                    <input
+                      type="date"
+                      value={formData.expiryDate}
+                      onChange={(e) => setFormData({ ...formData, expiryDate: e.target.value })}
+                      className="input w-full"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        status: e.target.value as 'draft' | 'published' | 'archived',
+                      })
+                    }
+                    className="input w-full"
+                  >
+                    <option value="draft">Nháp</option>
+                    <option value="published">Đã đăng</option>
+                    <option value="archived">Đã lưu trữ</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    resetForm();
+                  }}
+                  className="btn btn-secondary"
+                >
+                  Hủy
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={saveMutation.isPending}>
+                  {saveMutation.isPending ? 'Đang lưu...' : selectedAnnouncement ? 'Cập nhật' : 'Đăng thông báo'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {ConfirmDialog}
     </div>
   );
 };
 
 export default Announcements;
+
 

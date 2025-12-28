@@ -42,3 +42,4 @@ holidaySchema.index({ type: 1 });
 
 export default mongoose.model<IHoliday>('Holiday', holidaySchema);
 
+

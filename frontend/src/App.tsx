@@ -14,6 +14,10 @@ import Departments from './pages/Departments';
 import Positions from './pages/Positions';
 import Leaves from './pages/Leaves';
 import Salaries from './pages/Salaries';
+import Recruitment from './pages/Recruitment';
+import KPIs from './pages/KPIs';
+import Training from './pages/Training';
+import Announcements from './pages/Announcements';
 import Profile from './pages/Profile';
 
 const App: React.FC = () => {
@@ -82,6 +86,46 @@ const App: React.FC = () => {
               <ProtectedRoute>
                 <Layout>
                   <Salaries />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/recruitment"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Recruitment />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/kpis"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <KPIs />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/training"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Training />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/announcements"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Announcements />
                 </Layout>
               </ProtectedRoute>
             }

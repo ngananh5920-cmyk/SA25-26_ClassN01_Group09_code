@@ -8,6 +8,7 @@
     "create-users": "ts-node scripts/createUsers.ts",
     "delete-users": "node scripts/deleteUsers.js",
     "seed-data": "ts-node scripts/seedData.ts",
+    "seed-demo": "ts-node scripts/seedDemoData.ts",
     "dev": "nodemon src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",

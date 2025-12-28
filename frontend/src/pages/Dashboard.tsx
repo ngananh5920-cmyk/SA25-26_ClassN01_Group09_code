@@ -115,7 +115,7 @@ const Dashboard: React.FC = () => {
         { name: 'Hoạt động', value: stats.activeEmployees },
         { name: 'Không hoạt động', value: stats.inactiveEmployees },
         { name: 'Đã nghỉ việc', value: stats.terminatedEmployees },
-      ]
+      ].filter((item) => item.value > 0)
     : [];
 
   return (
@@ -195,7 +195,7 @@ const Dashboard: React.FC = () => {
             )}
 
             {/* Leave Status Chart */}
-            {stats?.leaveStatusData && stats.leaveStatusData.length > 0 && (
+            {stats?.leaveStatusData && stats.leaveStatusData.length > 0 && stats.leaveStatusData.some((item: any) => item.value > 0) && (
               <div className="card-premium">
                 <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center">
                   <span className="w-1 h-6 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full mr-3"></span>
@@ -205,7 +205,7 @@ const Dashboard: React.FC = () => {
                   <BarChart data={stats.leaveStatusData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                     <XAxis dataKey="name" stroke="#64748b" />
-                    <YAxis stroke="#64748b" />
+                    <YAxis stroke="#64748b" allowDecimals={false} />
                     <Tooltip 
                       contentStyle={{ 
                         backgroundColor: '#fff', 
@@ -222,7 +222,7 @@ const Dashboard: React.FC = () => {
           </div>
 
           {/* Department Distribution */}
-          {stats?.departmentChart && stats.departmentChart.length > 0 && (
+          {stats?.departmentChart && stats.departmentChart.length > 0 && stats.departmentChart.some((item: any) => item.value > 0) && (
             <div className="card-premium mb-8">
               <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center">
                 <span className="w-1 h-6 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full mr-3"></span>
@@ -232,7 +232,7 @@ const Dashboard: React.FC = () => {
                 <BarChart data={stats.departmentChart}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis dataKey="name" stroke="#64748b" />
-                  <YAxis stroke="#64748b" />
+                  <YAxis stroke="#64748b" allowDecimals={false} />
                   <Tooltip 
                     contentStyle={{ 
                       backgroundColor: '#fff', 

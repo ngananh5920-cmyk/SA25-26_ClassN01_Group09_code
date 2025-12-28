@@ -19,3 +19,4 @@ router.delete('/:key', adminOnly, deleteSetting);
 
 export default router;
 
+

@@ -142,3 +142,4 @@ candidateSchema.index({ recruitment: 1, status: 1 });
 export const Recruitment = mongoose.model<IRecruitment>('Recruitment', recruitmentSchema);
 export const Candidate = mongoose.model<ICandidate>('Candidate', candidateSchema);
 
+

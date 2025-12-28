@@ -31,3 +31,4 @@ router.delete('/candidates/:id', adminOrHR, deleteCandidate);
 
 export default router;
 
+

@@ -65,3 +65,4 @@ export const deleteSetting = async (req: AuthRequest, res: Response): Promise<vo
   }
 };
 
+

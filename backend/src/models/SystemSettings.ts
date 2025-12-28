@@ -44,3 +44,4 @@ systemSettingsSchema.index({ category: 1 });
 
 export default mongoose.model<ISystemSettings>('SystemSettings', systemSettingsSchema);
 
+

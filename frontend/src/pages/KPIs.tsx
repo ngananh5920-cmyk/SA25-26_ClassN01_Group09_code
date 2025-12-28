@@ -32,6 +32,15 @@ const KPIs: React.FC = () => {
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedKPI, setSelectedKPI] = useState<KPI | null>(null);
+  const [formData, setFormData] = useState({
+    employee: '',
+    periodType: 'monthly' as 'monthly' | 'quarterly' | 'yearly',
+    month: new Date().getMonth() + 1,
+    quarter: 1,
+    year: new Date().getFullYear(),
+    goals: [{ name: '', target: 0, weight: 25, unit: '' }],
+    status: 'draft' as 'draft' | 'submitted' | 'reviewed' | 'approved',
+  });
 
   const isAdmin = user?.role === 'admin';
   const isHR = user?.role === 'hr';
@@ -45,6 +54,100 @@ const KPIs: React.FC = () => {
       return response.data.data || [];
     },
   });
+
+  const { data: employeesData } = useQuery({
+    queryKey: ['employees'],
+    queryFn: async () => {
+      const response = await api.get('/employees');
+      return response.data.data || [];
+    },
+    enabled: canManage && isModalOpen,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const period: any = {
+        type: data.periodType,
+        year: data.year,
+      };
+      if (data.periodType === 'monthly') period.month = data.month;
+      if (data.periodType === 'quarterly') period.quarter = data.quarter;
+
+      const submitData = {
+        employee: data.employee,
+        period,
+        goals: data.goals.filter((g: any) => g.name.trim() !== ''),
+        status: data.status,
+      };
+
+      if (selectedKPI) {
+        return await api.put(`/kpis/${selectedKPI._id}`, submitData);
+      } else {
+        return await api.post('/kpis', submitData);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['kpis'] });
+      showToast(selectedKPI ? 'Cập nhật KPI thành công' : 'Tạo KPI thành công', 'success');
+      setIsModalOpen(false);
+      resetForm();
+    },
+    onError: (error: any) => {
+      showToast(error.response?.data?.message || 'Thao tác thất bại', 'error');
+    },
+  });
+
+  const resetForm = () => {
+    setFormData({
+      employee: '',
+      periodType: 'monthly',
+      month: new Date().getMonth() + 1,
+      quarter: 1,
+      year: new Date().getFullYear(),
+      goals: [{ name: '', target: 0, weight: 25, unit: '' }],
+      status: 'draft',
+    });
+    setSelectedKPI(null);
+  };
+
+  const handleEdit = (kpi: KPI) => {
+    setSelectedKPI(kpi);
+    setFormData({
+      employee: kpi.employee._id,
+      periodType: kpi.period.type,
+      month: kpi.period.month || new Date().getMonth() + 1,
+      quarter: kpi.period.quarter || 1,
+      year: kpi.period.year,
+      goals: kpi.goals.length > 0 ? kpi.goals : [{ name: '', target: 0, weight: 25, unit: '' }],
+      status: kpi.status,
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    saveMutation.mutate(formData);
+  };
+
+  const addGoal = () => {
+    setFormData({
+      ...formData,
+      goals: [...formData.goals, { name: '', target: 0, weight: 25, unit: '' }],
+    });
+  };
+
+  const removeGoal = (index: number) => {
+    setFormData({
+      ...formData,
+      goals: formData.goals.filter((_, i) => i !== index),
+    });
+  };
+
+  const updateGoal = (index: number, field: string, value: any) => {
+    const newGoals = [...formData.goals];
+    newGoals[index] = { ...newGoals[index], [field]: value };
+    setFormData({ ...formData, goals: newGoals });
+  };
 
   const getRatingBadge = (rating?: string) => {
     if (!rating) return null;
@@ -95,7 +198,10 @@ const KPIs: React.FC = () => {
         <h1 className="text-3xl font-bold text-gray-800">Đánh giá & KPI</h1>
         {canManage && (
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => {
+              resetForm();
+              setIsModalOpen(true);
+            }}
             className="btn btn-primary flex items-center gap-2"
           >
             <Plus size={20} /> Tạo KPI
@@ -152,10 +258,7 @@ const KPIs: React.FC = () => {
                     <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(kpi.status)}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                       <button
-                        onClick={() => {
-                          setSelectedKPI(kpi);
-                          setIsModalOpen(true);
-                        }}
+                        onClick={() => handleEdit(kpi)}
                         className="text-primary-600 hover:text-primary-900"
                       >
                         <Edit size={16} />
@@ -168,9 +271,211 @@ const KPIs: React.FC = () => {
           </table>
         </div>
       </div>
+
+      {/* KPI Form Modal */}
+      {isModalOpen && canManage && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+              {selectedKPI ? 'Sửa KPI' : 'Tạo KPI'}
+            </h2>
+            <form onSubmit={handleSubmit}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nhân viên <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    required
+                    value={formData.employee}
+                    onChange={(e) => setFormData({ ...formData, employee: e.target.value })}
+                    className="input w-full"
+                    disabled={!!selectedKPI}
+                  >
+                    <option value="">Chọn nhân viên</option>
+                    {(employeesData || []).map((emp: any) => (
+                      <option key={emp._id} value={emp._id}>
+                        {emp.firstName} {emp.lastName} ({emp.employeeId})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Loại kỳ <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={formData.periodType}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          periodType: e.target.value as 'monthly' | 'quarterly' | 'yearly',
+                        })
+                      }
+                      className="input w-full"
+                    >
+                      <option value="monthly">Tháng</option>
+                      <option value="quarterly">Quý</option>
+                      <option value="yearly">Năm</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Năm <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      required
+                      value={formData.year}
+                      onChange={(e) => setFormData({ ...formData, year: Number(e.target.value) })}
+                      className="input w-full"
+                      min="2020"
+                      max="2100"
+                    />
+                  </div>
+                </div>
+
+                {formData.periodType === 'monthly' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tháng</label>
+                    <select
+                      value={formData.month}
+                      onChange={(e) => setFormData({ ...formData, month: Number(e.target.value) })}
+                      className="input w-full"
+                    >
+                      {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                        <option key={m} value={m}>
+                          Tháng {m}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {formData.periodType === 'quarterly' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Quý</label>
+                    <select
+                      value={formData.quarter}
+                      onChange={(e) => setFormData({ ...formData, quarter: Number(e.target.value) })}
+                      className="input w-full"
+                    >
+                      {[1, 2, 3, 4].map((q) => (
+                        <option key={q} value={q}>
+                          Quý {q}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Mục tiêu <span className="text-red-500">*</span>
+                  </label>
+                  <div className="space-y-3">
+                    {formData.goals.map((goal, index) => (
+                      <div key={index} className="flex gap-2 items-end p-3 border rounded-lg">
+                        <div className="flex-1">
+                          <input
+                            type="text"
+                            placeholder="Tên mục tiêu"
+                            value={goal.name}
+                            onChange={(e) => updateGoal(index, 'name', e.target.value)}
+                            className="input w-full mb-2"
+                            required
+                          />
+                          <div className="grid grid-cols-3 gap-2">
+                            <input
+                              type="number"
+                              placeholder="Mục tiêu"
+                              value={goal.target || ''}
+                              onChange={(e) => updateGoal(index, 'target', Number(e.target.value))}
+                              className="input"
+                              required
+                              min="0"
+                            />
+                            <input
+                              type="number"
+                              placeholder="Trọng số (%)"
+                              value={goal.weight || ''}
+                              onChange={(e) => updateGoal(index, 'weight', Number(e.target.value))}
+                              className="input"
+                              required
+                              min="0"
+                              max="100"
+                            />
+                            <input
+                              type="text"
+                              placeholder="Đơn vị"
+                              value={goal.unit || ''}
+                              onChange={(e) => updateGoal(index, 'unit', e.target.value)}
+                              className="input"
+                            />
+                          </div>
+                        </div>
+                        {formData.goals.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeGoal(index)}
+                            className="btn btn-danger"
+                          >
+                            Xóa
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button type="button" onClick={addGoal} className="btn btn-secondary text-sm">
+                      + Thêm mục tiêu
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        status: e.target.value as 'draft' | 'submitted' | 'reviewed' | 'approved',
+                      })
+                    }
+                    className="input w-full"
+                  >
+                    <option value="draft">Nháp</option>
+                    <option value="submitted">Đã nộp</option>
+                    <option value="reviewed">Đã đánh giá</option>
+                    <option value="approved">Đã duyệt</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    resetForm();
+                  }}
+                  className="btn btn-secondary"
+                >
+                  Hủy
+                </button>
+                <button type="submit" className="btn btn-primary" disabled={saveMutation.isPending}>
+                  {saveMutation.isPending ? 'Đang lưu...' : selectedKPI ? 'Cập nhật' : 'Tạo KPI'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
 export default KPIs;
+
 

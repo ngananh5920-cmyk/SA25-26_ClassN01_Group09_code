@@ -16,11 +16,26 @@ interface Employee {
   dateOfBirth: string;
   gender: 'male' | 'female' | 'other';
   address: string;
+  cccd?: string;
   department: string;
   position: string;
+  manager?: string;
   salary: number;
   hireDate: string;
+  contractEndDate?: string;
   status: 'active' | 'inactive' | 'terminated';
+  skills?: Array<{
+    name: string;
+    level: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+    certificate?: string;
+  }>;
+  workHistory?: Array<{
+    date: string;
+    type: 'promotion' | 'transfer' | 'salary_change' | 'position_change';
+    description: string;
+    from?: string;
+    to?: string;
+  }>;
 }
 
 interface EmployeeResponse extends Employee {
