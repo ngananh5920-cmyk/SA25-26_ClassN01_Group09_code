@@ -76,7 +76,7 @@ const Dashboard: React.FC = () => {
 
   const statsCards = [
     {
-      title: 'Tổng Nhân viên',
+      title: 'Tổng nhân viên',
       value: stats?.totalEmployees || 0,
       icon: '👥',
       gradient: 'from-blue-500 to-blue-600',
@@ -85,7 +85,7 @@ const Dashboard: React.FC = () => {
       change: '+12%',
     },
     {
-      title: 'Nhân viên Hoạt động',
+      title: 'Nhân viên đang làm',
       value: stats?.activeEmployees || 0,
       icon: '✅',
       gradient: 'from-emerald-500 to-emerald-600',
@@ -101,7 +101,7 @@ const Dashboard: React.FC = () => {
       iconBg: 'bg-purple-500',
     },
     {
-      title: 'Đơn Nghỉ phép Chờ duyệt',
+      title: 'Đơn nghỉ phép chờ duyệt',
       value: stats?.pendingLeaves || 0,
       icon: '📅',
       gradient: 'from-amber-500 to-amber-600',
@@ -112,7 +112,7 @@ const Dashboard: React.FC = () => {
 
   const employeeStatusData = stats
     ? [
-        { name: 'Hoạt động', value: stats.activeEmployees },
+        { name: 'Đang làm', value: stats.activeEmployees },
         { name: 'Không hoạt động', value: stats.inactiveEmployees },
         { name: 'Đã nghỉ việc', value: stats.terminatedEmployees },
       ].filter((item) => item.value > 0)
@@ -122,7 +122,7 @@ const Dashboard: React.FC = () => {
     <div>
       <div className="mb-8">
         <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
-          Dashboard
+          Bảng điều khiển
         </h1>
         <p className="text-slate-600 text-lg">
           Chào mừng, <span className="font-semibold text-slate-900">{user?.email}</span>! Vai trò:{' '}
@@ -170,7 +170,7 @@ const Dashboard: React.FC = () => {
               <div className="card-premium">
                 <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center">
                   <span className="w-1 h-6 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full mr-3"></span>
-                  Trạng thái Nhân viên
+                  Trạng thái nhân viên
                 </h2>
                 <ResponsiveContainer width="100%" height={300}>
                   <PieChart>
@@ -199,7 +199,7 @@ const Dashboard: React.FC = () => {
               <div className="card-premium">
                 <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center">
                   <span className="w-1 h-6 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full mr-3"></span>
-                  Trạng thái Đơn Nghỉ phép
+                  Trạng thái đơn nghỉ phép
                 </h2>
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={stats.leaveStatusData}>
@@ -226,7 +226,7 @@ const Dashboard: React.FC = () => {
             <div className="card-premium mb-8">
               <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center">
                 <span className="w-1 h-6 bg-gradient-to-b from-indigo-500 to-purple-500 rounded-full mr-3"></span>
-                Phân bố Nhân viên theo Phòng ban
+                Phân bố nhân viên theo phòng ban
               </h2>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={stats.departmentChart}>
@@ -252,11 +252,11 @@ const Dashboard: React.FC = () => {
             <div className="card-premium">
               <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center">
                 <span className="w-1 h-5 bg-gradient-to-b from-blue-500 to-blue-600 rounded-full mr-2"></span>
-                Tổng quan Hệ thống
+                Tổng quan hệ thống
               </h3>
               <div className="space-y-3">
                 <div className="flex justify-between items-center py-2 border-b border-slate-100">
-                  <span className="text-slate-600">Tổng số Nhân viên</span>
+                  <span className="text-slate-600">Tổng số nhân viên</span>
                   <span className="font-bold text-slate-900 text-lg">{stats?.totalEmployees || 0}</span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-slate-100">
@@ -264,7 +264,7 @@ const Dashboard: React.FC = () => {
                   <span className="font-bold text-slate-900 text-lg">{stats?.totalDepartments || 0}</span>
                 </div>
                 <div className="flex justify-between items-center py-2">
-                  <span className="text-slate-600">Đơn Nghỉ phép</span>
+                  <span className="text-slate-600">Đơn nghỉ phép</span>
                   <span className="font-bold text-slate-900 text-lg">{stats?.totalLeaves || 0}</span>
                 </div>
               </div>
@@ -273,7 +273,7 @@ const Dashboard: React.FC = () => {
             <div className="card-premium">
               <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-center">
                 <span className="w-1 h-5 bg-gradient-to-b from-amber-500 to-amber-600 rounded-full mr-2"></span>
-                Đơn Nghỉ phép
+                Đơn nghỉ phép
               </h3>
               <div className="space-y-3">
                 <div className="flex justify-between items-center py-2 border-b border-slate-100">
@@ -298,7 +298,7 @@ const Dashboard: React.FC = () => {
               </h3>
               <div className="space-y-3">
                 <div className="flex justify-between items-center py-2 border-b border-slate-100">
-                  <span className="text-slate-600">Hoạt động</span>
+                  <span className="text-slate-600">Đang làm</span>
                   <span className="font-bold text-emerald-600 text-lg">{stats?.activeEmployees || 0}</span>
                 </div>
                 <div className="flex justify-between items-center py-2 border-b border-slate-100">
@@ -335,7 +335,7 @@ const Dashboard: React.FC = () => {
                               {contract.employee?.firstName} {contract.employee?.lastName}
                             </p>
                             <p className="text-sm text-slate-600 mt-1">
-                              {contract.department?.name || 'Chưa có phòng ban'}
+                              {contract.department?.name || 'Không có phòng ban'}
                             </p>
                             <p className="text-xs text-amber-700 mt-1">
                               Hết hạn: {format(new Date(contract.endDate), 'dd/MM/yyyy')} ({contract.daysRemaining} ngày)
@@ -368,7 +368,7 @@ const Dashboard: React.FC = () => {
                               {birthday.firstName} {birthday.lastName}
                             </p>
                             <p className="text-sm text-slate-600 mt-1">
-                              {birthday.department?.name || 'Chưa có phòng ban'}
+                              {birthday.department?.name || 'Không có phòng ban'}
                             </p>
                             <p className="text-xs text-pink-700 mt-1">
                               {format(new Date(birthday.birthday), 'dd/MM/yyyy', { locale: vi })} ({birthday.daysUntil === 0 ? 'Hôm nay' : `${birthday.daysUntil} ngày nữa`})

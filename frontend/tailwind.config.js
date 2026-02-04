@@ -8,17 +8,17 @@ export default {
     extend: {
       colors: {
         primary: {
-          50: '#f0f4ff',
-          100: '#e0e9ff',
-          200: '#c7d7fe',
-          300: '#a4bcfc',
-          400: '#8198f8',
-          500: '#6366f1', // Indigo-500 - màu chính sang trọng
-          600: '#4f46e5', // Indigo-600
-          700: '#4338ca', // Indigo-700
-          800: '#3730a3', // Indigo-800
-          900: '#312e81', // Indigo-900
-          950: '#1e1b4b',
+          50: '#f8fafc',
+          100: '#f1f5f9',
+          200: '#e2e8f0',
+          300: '#cbd5e1',
+          400: '#94a3b8',
+          500: '#64748b', // Slate-500 - xam nen
+          600: '#475569', // Slate-600
+          700: '#334155', // Slate-700
+          800: '#1e293b', // Slate-800
+          900: '#0f172a', // Slate-900
+          950: '#020617',
         },
         accent: {
           50: '#faf5ff',

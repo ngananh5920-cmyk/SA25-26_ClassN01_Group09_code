@@ -93,7 +93,7 @@ const KPIs: React.FC = () => {
       resetForm();
     },
     onError: (error: any) => {
-      showToast(error.response?.data?.message || 'Thao tác thất bại', 'error');
+      showToast(error.response?.data?.message || 'Action failed', 'error');
     },
   });
 
@@ -227,7 +227,7 @@ const KPIs: React.FC = () => {
               {kpis.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
-                    Chưa có KPI nào
+                    Không có KPI nào
                   </td>
                 </tr>
               ) : (
@@ -277,7 +277,7 @@ const KPIs: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">
-              {selectedKPI ? 'Sửa KPI' : 'Tạo KPI'}
+              {selectedKPI ? 'Chỉnh sửa KPI' : 'Tạo KPI'}
             </h2>
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">

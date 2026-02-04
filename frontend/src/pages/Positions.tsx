@@ -101,7 +101,7 @@ const Positions: React.FC = () => {
       setSelectedPosition(null);
     },
     onError: (error: any) => {
-      showToast(error.response?.data?.message || 'Thao tác thất bại', 'error');
+      showToast(error.response?.data?.message || 'Action failed', 'error');
     },
   });
 
@@ -172,17 +172,17 @@ const Positions: React.FC = () => {
   const getStatusBadge = (status: string) => {
     return status === 'active' ? (
       <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-        Hoạt động
+        Active
       </span>
     ) : (
       <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-        Không hoạt động
+        Inactive
       </span>
     );
   };
 
   const exportToCSV = () => {
-    const headers = ['Tên Chức vụ', 'Phòng ban', 'Mô tả', 'Lương tối thiểu', 'Lương tối đa', 'Trạng thái'];
+    const headers = ['Tên chức vụ', 'Phòng ban', 'Mô tả', 'Lương tối thiểu', 'Lương tối đa', 'Trạng thái'];
     const rows = filteredPositions.map((pos) => [
       pos.title,
       pos.department?.name || '',
@@ -202,12 +202,11 @@ const Positions: React.FC = () => {
     link.href = URL.createObjectURL(blob);
     link.download = `positions_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
-    showToast('Xuất file CSV thành công', 'success');
+    showToast('CSV exported successfully', 'success');
   };
 
   const isAdmin = user?.role === 'admin';
-  const isHR = user?.role === 'hr';
-  const canEdit = isAdmin || isHR;
+  const canEdit = isAdmin;
 
   if (isLoading) {
     return (
@@ -222,7 +221,7 @@ const Positions: React.FC = () => {
     <div>
       {ConfirmDialog}
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Quản lý Chức vụ</h1>
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Quản lý chức vụ</h1>
         <div className="flex space-x-3">
           {canEdit && filteredPositions.length > 0 && (
             <button
@@ -230,12 +229,12 @@ const Positions: React.FC = () => {
               className="btn btn-secondary flex items-center space-x-2"
             >
               <span>📥</span>
-              <span>Xuất CSV</span>
+              <span>Export CSV</span>
             </button>
           )}
           {canEdit && (
             <button onClick={handleAdd} className="btn btn-primary">
-              + Thêm Chức vụ
+              + Thêm chức vụ
             </button>
           )}
         </div>
@@ -267,9 +266,9 @@ const Positions: React.FC = () => {
               }}
               className="input"
             >
-              <option value="all">Tất cả</option>
-              <option value="active">Hoạt động</option>
-              <option value="inactive">Không hoạt động</option>
+              <option value="all">All</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
             </select>
           </div>
           <div>
@@ -282,7 +281,7 @@ const Positions: React.FC = () => {
               }}
               className="input"
             >
-              <option value="all">Tất cả</option>
+              <option value="all">All</option>
               {departments?.map((dept: any) => (
                 <option key={dept._id} value={dept._id}>
                   {dept.name}
@@ -316,7 +315,7 @@ const Positions: React.FC = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tên Chức vụ
+                  Tên chức vụ
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Phòng ban
@@ -344,8 +343,8 @@ const Positions: React.FC = () => {
                 <tr>
                   <td colSpan={canEdit ? (isAdmin ? 6 : 5) : (isAdmin ? 5 : 4)} className="px-6 py-8 text-center text-gray-500">
                     {searchTerm || statusFilter !== 'all' || departmentFilter !== 'all'
-                      ? 'Không tìm thấy chức vụ nào'
-                      : 'Chưa có chức vụ nào'}
+                      ? 'Không có chức vụ nào'
+                      : 'Không có chức vụ nào'}
                   </td>
                 </tr>
               ) : (
@@ -381,7 +380,7 @@ const Positions: React.FC = () => {
                           onClick={() => handleEdit(position)}
                           className="text-primary-600 hover:text-primary-900 font-medium"
                         >
-                          ✏️ Sửa
+                        ✏️ Sửa
                         </button>
                         {isAdmin && (
                           <button
@@ -414,7 +413,7 @@ const Positions: React.FC = () => {
                   disabled={currentPage === 1}
                   className="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  ‹ Trước
+                  ‹ Prev
                 </button>
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                   <button
@@ -432,7 +431,7 @@ const Positions: React.FC = () => {
                   disabled={currentPage === totalPages}
                   className="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Sau ›
+                  Next ›
                 </button>
               </div>
             </div>
@@ -445,18 +444,18 @@ const Positions: React.FC = () => {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
           <div className="bg-white rounded-2xl p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-100">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">
-              {selectedPosition ? 'Sửa Chức vụ' : 'Thêm Chức vụ'}
+              {selectedPosition ? 'Chỉnh sửa chức vụ' : 'Thêm chức vụ'}
             </h2>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tên Chức vụ *
+                  Tên chức vụ *
                 </label>
                 <input
                   type="text"
                   {...register('title', { required: 'Tên chức vụ là bắt buộc' })}
                   className="input"
-                  placeholder="Nhân viên IT"
+                  placeholder="Kỹ sư phần mềm"
                 />
                 {errors.title && (
                   <p className="text-red-600 text-xs mt-1">{errors.title.message}</p>
@@ -527,8 +526,8 @@ const Positions: React.FC = () => {
                   Trạng thái *
                 </label>
                 <select {...register('status')} className="input">
-                  <option value="active">Hoạt động</option>
-                  <option value="inactive">Không hoạt động</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
                 </select>
               </div>
 

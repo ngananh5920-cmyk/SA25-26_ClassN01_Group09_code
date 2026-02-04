@@ -16,17 +16,17 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle token expiration - chỉ logout khi 401 (unauthorized), không logout khi 403 (forbidden)
+// Handle token expiration: logout on 401 (unauthorized), not on 403 (forbidden)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Chỉ logout khi token không hợp lệ (401), không logout khi không có quyền (403)
+    // Logout only when the token is invalid (401), not when access is forbidden (403).
     if (error.response?.status === 401) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';
     }
-    // 403 (Forbidden) không nên logout user, chỉ reject promise để component xử lý
+    // For 403 (Forbidden), do not logout; let the component handle the error.
     return Promise.reject(error);
   }
 );

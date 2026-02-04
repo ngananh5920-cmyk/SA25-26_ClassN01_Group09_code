@@ -24,10 +24,8 @@ const Login: React.FC = () => {
   const { register, handleSubmit, reset, formState: { errors } } = useForm<LoginForm>();
 
   const demoAccounts = [
-    { email: 'admin@hrm.com', password: 'admin123', role: 'Admin', gradient: 'from-purple-500 to-purple-600', bgGradient: 'from-purple-50 to-purple-100' },
-    { email: 'hr@hrm.com', password: 'hr1234', role: 'HR', gradient: 'from-blue-500 to-blue-600', bgGradient: 'from-blue-50 to-blue-100' },
-    { email: 'manager@hrm.com', password: 'manager123', role: 'Manager', gradient: 'from-amber-500 to-amber-600', bgGradient: 'from-amber-50 to-amber-100' },
-    { email: 'employee@hrm.com', password: 'employee123', role: 'Employee', gradient: 'from-emerald-500 to-emerald-600', bgGradient: 'from-emerald-50 to-emerald-100' },
+    { email: 'admin@hrm.com', password: 'admin123', role: 'Admin', gradient: 'from-slate-700 to-slate-800', bgGradient: 'from-slate-100 to-slate-200' },
+    { email: 'employee@hrm.com', password: 'employee123', role: 'Nhân viên', gradient: 'from-slate-700 to-slate-800', bgGradient: 'from-slate-100 to-slate-200' },
   ];
 
   const fillDemoAccount = (account: typeof demoAccounts[0]) => {
@@ -43,7 +41,7 @@ const Login: React.FC = () => {
     try {
       const response = await api.post('/auth/login', data);
       setAuth(response.data.token, response.data.user);
-      // Tất cả roles đều có thể vào "/" (Dashboard) - sẽ hiển thị nội dung phù hợp
+      // All roles can access "/" (Dashboard) and see role-specific content
       navigate('/');
     } catch (err: any) {
       // Hiển thị lỗi chi tiết hơn
@@ -52,8 +50,8 @@ const Login: React.FC = () => {
         const message = err.response.data?.message || 'Đăng nhập thất bại';
         setError(message);
       } else if (err.request) {
-        // Request được gửi nhưng không có response (backend không chạy hoặc không thể kết nối)
-        setError('Không thể kết nối tới server. Vui lòng kiểm tra backend có đang chạy không.');
+        // Request được gửi nhưng không có phản hồi (backend không chạy hoặc không thể kết nối)
+        setError('Không thể kết nối tới máy chủ. Vui lòng kiểm tra backend đang chạy.');
       } else {
         // Lỗi khác
         setError('Đăng nhập thất bại. Vui lòng thử lại.');
@@ -65,21 +63,21 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-500 py-8 px-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 py-8 px-4 relative overflow-hidden">
       {/* Animated background elements */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-slate-700 rounded-full mix-blend-multiply filter blur-xl opacity-50 animate-blob"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-slate-800 rounded-full mix-blend-multiply filter blur-xl opacity-50 animate-blob animation-delay-2000"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-slate-700 rounded-full mix-blend-multiply filter blur-xl opacity-50 animate-blob animation-delay-4000"></div>
       </div>
 
       <div className="max-w-md w-full relative z-10">
         <div className="bg-white/95 backdrop-blur-lg rounded-3xl shadow-2xl p-8 border border-white/20 animate-fadeIn">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl mb-4 shadow-lg transform rotate-3 hover:rotate-6 transition-transform duration-300">
-              <h1 className="text-3xl font-bold text-white">HRM</h1>
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl mb-4 shadow-lg transform rotate-3 hover:rotate-6 transition-transform duration-300">
+              <h1 className="text-3xl font-bold text-slate-100">HRM</h1>
             </div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-700 to-slate-900 bg-clip-text text-transparent mb-2">
               HRM System
             </h1>
             <h2 className="text-lg font-semibold text-slate-600">Đăng nhập vào hệ thống</h2>
@@ -114,7 +112,7 @@ const Login: React.FC = () => {
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
                 Email
               </label>
               <input
@@ -129,7 +127,7 @@ const Login: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">
                 Mật khẩu
               </label>
               <input
@@ -164,7 +162,7 @@ const Login: React.FC = () => {
 
           <div className="mt-6 text-center">
             <p className="text-xs text-slate-500">
-              Click vào tài khoản demo để tự động điền thông tin
+              Nhấn vào tài khoản demo để tự điền thông tin đăng nhập
             </p>
           </div>
         </div>

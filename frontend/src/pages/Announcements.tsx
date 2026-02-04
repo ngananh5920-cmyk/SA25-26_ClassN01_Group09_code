@@ -36,8 +36,7 @@ const Announcements: React.FC = () => {
   });
 
   const isAdmin = user?.role === 'admin';
-  const isHR = user?.role === 'hr';
-  const canEdit = isAdmin || isHR;
+  const canEdit = isAdmin;
 
   const { data, isLoading } = useQuery({
     queryKey: ['announcements'],
@@ -70,7 +69,7 @@ const Announcements: React.FC = () => {
       resetForm();
     },
     onError: (error: any) => {
-      showToast(error.response?.data?.message || 'Thao tác thất bại', 'error');
+      showToast(error.response?.data?.message || 'Action failed', 'error');
     },
   });
 
@@ -119,7 +118,7 @@ const Announcements: React.FC = () => {
   const handleDelete = async (announcement: Announcement) => {
     const confirmed = await confirm({
       title: 'Xác nhận xóa',
-      message: `Bạn có chắc chắn muốn xóa thông báo "${announcement.title}"?`,
+      message: `Bạn có chắc muốn xóa thông báo "${announcement.title}"?`,
       confirmText: 'Xóa',
       cancelText: 'Hủy',
       type: 'danger',
@@ -179,7 +178,7 @@ const Announcements: React.FC = () => {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">Thông báo & Nội bộ</h1>
+        <h1 className="text-3xl font-bold text-gray-800">Thông báo nội bộ</h1>
         {canEdit && (
           <button
             onClick={() => {
@@ -188,7 +187,7 @@ const Announcements: React.FC = () => {
             }}
             className="btn btn-primary flex items-center gap-2"
           >
-            <Plus size={20} /> Tạo Thông báo
+            <Plus size={20} /> Tạo thông báo
           </button>
         )}
       </div>
@@ -239,7 +238,7 @@ const Announcements: React.FC = () => {
       {announcements.length === 0 && (
         <div className="card text-center py-12">
           <Bell size={48} className="mx-auto text-gray-400 mb-4" />
-          <p className="text-gray-600">Chưa có thông báo nào</p>
+          <p className="text-gray-600">Chưa có thông báo</p>
         </div>
       )}
 
@@ -248,7 +247,7 @@ const Announcements: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">
-              {selectedAnnouncement ? 'Sửa Thông báo' : 'Tạo Thông báo'}
+              {selectedAnnouncement ? 'Chỉnh sửa thông báo' : 'Tạo thông báo'}
             </h2>
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
@@ -304,7 +303,7 @@ const Announcements: React.FC = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Độ ưu tiên <span className="text-red-500">*</span>
+                      Mức ưu tiên <span className="text-red-500">*</span>
                     </label>
                     <select
                       required
@@ -363,7 +362,7 @@ const Announcements: React.FC = () => {
                   >
                     <option value="draft">Nháp</option>
                     <option value="published">Đã đăng</option>
-                    <option value="archived">Đã lưu trữ</option>
+                    <option value="archived">Lưu trữ</option>
                   </select>
                 </div>
               </div>

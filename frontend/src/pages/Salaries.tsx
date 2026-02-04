@@ -111,7 +111,7 @@ const Salaries: React.FC = () => {
       setSelectedSalary(null);
     },
     onError: (error: any) => {
-      showToast(error.response?.data?.message || 'Thao tác thất bại', 'error');
+      showToast(error.response?.data?.message || 'Action failed', 'error');
     },
   });
 
@@ -256,7 +256,9 @@ const Salaries: React.FC = () => {
     return salaries.some((salary) => salary.month === month && salary.year === year);
   };
 
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+  const isHR = user?.role === 'hr';
+  const canEdit = isAdmin || isHR;
 
   if (isLoading) {
     return (
@@ -272,8 +274,8 @@ const Salaries: React.FC = () => {
       {ConfirmDialog}
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Quản lý Lương</h1>
-          {isAdmin && (
+          <h1 className="text-3xl font-bold text-gray-800">Quản lý lương</h1>
+          {canEdit && (
             <div className="mt-2 flex items-center gap-2">
               {(() => {
                 const currentDate = new Date();
@@ -296,7 +298,7 @@ const Salaries: React.FC = () => {
           )}
         </div>
         <div className="space-x-3">
-          {isAdmin && (
+          {canEdit && (
             <button
               onClick={handleProcessPayroll}
               className="btn btn-secondary"
@@ -305,9 +307,9 @@ const Salaries: React.FC = () => {
               {processPayrollMutation.isPending ? 'Đang xử lý...' : 'Xử lý Payroll'}
             </button>
           )}
-          {isAdmin && (
+          {canEdit && (
             <button onClick={handleAdd} className="btn btn-primary">
-              + Thêm Bản ghi Lương
+              + Thêm bản ghi lương
             </button>
           )}
         </div>
@@ -320,7 +322,7 @@ const Salaries: React.FC = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Nhân viên
+                  Employees
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Tháng/Năm
@@ -340,7 +342,7 @@ const Salaries: React.FC = () => {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Trạng thái
                 </th>
-                {isAdmin && (
+                {canEdit && (
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Thao tác
                   </th>
@@ -350,8 +352,8 @@ const Salaries: React.FC = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {!salaries || salaries.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdmin ? 8 : 7} className="px-6 py-8 text-center text-gray-500">
-                    Chưa có bản ghi lương nào
+                  <td colSpan={canEdit ? 8 : 7} className="px-6 py-8 text-center text-gray-500">
+                    Không có bản ghi lương nào
                   </td>
                 </tr>
               ) : (
@@ -391,7 +393,7 @@ const Salaries: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getStatusBadge(salary.status)}
                       </td>
-                      {isAdmin && (
+                      {canEdit && (
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                           <button
                             onClick={() => handleEdit(salary)}
@@ -417,11 +419,11 @@ const Salaries: React.FC = () => {
       </div>
 
       {/* Salary Form Modal */}
-      {isModalOpen && isAdmin && (
+      {isModalOpen && canEdit && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">
-              {selectedSalary ? 'Sửa Bản ghi Lương' : 'Thêm Bản ghi Lương'}
+              {selectedSalary ? 'Chỉnh sửa bản ghi lương' : 'Thêm bản ghi lương'}
             </h2>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>

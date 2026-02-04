@@ -50,7 +50,7 @@ const Recruitment: React.FC = () => {
     status: 'open' as 'open' | 'closed' | 'filled',
   });
 
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
   const isHR = user?.role === 'hr';
   const canEdit = isAdmin || isHR;
 
@@ -91,14 +91,14 @@ const Recruitment: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['recruitments'] });
       showToast(
-        selectedRecruitment ? 'Cập nhật tin tuyển dụng thành công' : 'Tạo tin tuyển dụng thành công',
+        selectedRecruitment ? 'Cập nhật tin tuyển dụng thành công' : 'Đăng tin tuyển dụng thành công',
         'success'
       );
       setIsModalOpen(false);
       resetForm();
     },
     onError: (error: any) => {
-      showToast(error.response?.data?.message || 'Thao tác thất bại', 'error');
+      showToast(error.response?.data?.message || 'Action failed', 'error');
     },
   });
 
@@ -147,7 +147,7 @@ const Recruitment: React.FC = () => {
   const handleDelete = async (recruitment: Recruitment) => {
     const confirmed = await confirm({
       title: 'Xác nhận xóa',
-      message: `Bạn có chắc chắn muốn xóa tin tuyển dụng "${recruitment.title}"?`,
+      message: `Bạn có chắc muốn xóa tin tuyển dụng "${recruitment.title}"?`,
       confirmText: 'Xóa',
       cancelText: 'Hủy',
       type: 'danger',
@@ -272,7 +272,7 @@ const Recruitment: React.FC = () => {
       {recruitments.length === 0 && (
         <div className="card text-center py-12">
           <FileText size={48} className="mx-auto text-gray-400 mb-4" />
-          <p className="text-gray-600">Chưa có tin tuyển dụng nào</p>
+          <p className="text-gray-600">Chưa có tin tuyển dụng</p>
         </div>
       )}
 
@@ -281,7 +281,7 @@ const Recruitment: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">
-              {selectedRecruitment ? 'Sửa Tin tuyển dụng' : 'Đăng Tin tuyển dụng'}
+              {selectedRecruitment ? 'Chỉnh sửa tin tuyển dụng' : 'Đăng tin tuyển dụng'}
             </h2>
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
@@ -295,7 +295,7 @@ const Recruitment: React.FC = () => {
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     className="input w-full"
-                    placeholder="Ví dụ: Tuyển dụng Nhân viên Kinh doanh"
+                    placeholder="Ví dụ: Chuyên viên phát triển kinh doanh"
                   />
                 </div>
 
@@ -348,7 +348,7 @@ const Recruitment: React.FC = () => {
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     className="input w-full"
                     rows={4}
-                    placeholder="Mô tả chi tiết về vị trí tuyển dụng"
+                    placeholder="Mô tả công việc chi tiết"
                   />
                 </div>
 
@@ -380,7 +380,7 @@ const Recruitment: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Hạn nộp hồ sơ</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Hạn nộp</label>
                     <input
                       type="date"
                       value={formData.deadline}
@@ -418,7 +418,7 @@ const Recruitment: React.FC = () => {
                   Hủy
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={saveMutation.isPending}>
-                  {saveMutation.isPending ? 'Đang lưu...' : selectedRecruitment ? 'Cập nhật' : 'Đăng tin'}
+                  {saveMutation.isPending ? 'Đang lưu...' : selectedRecruitment ? 'Cập nhật' : 'Đăng'}
                 </button>
               </div>
             </form>

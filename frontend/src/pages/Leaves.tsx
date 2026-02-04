@@ -21,7 +21,7 @@ interface Leave {
 
 interface LeaveResponse extends Leave {
   _id: string;
-  employee?: { _id: string; firstName: string; lastName: string; email: string };
+  employee?: { _id: string; firstName: string; lastName: string; email: string } | string;
 }
 
 const Leaves: React.FC = () => {
@@ -85,13 +85,16 @@ const Leaves: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leaves'] });
-      showToast(selectedLeave ? 'Cập nhật đơn nghỉ phép thành công' : 'Tạo đơn nghỉ phép thành công', 'success');
+      showToast(
+        selectedLeave ? 'Cập nhật đơn nghỉ phép thành công' : 'Tạo đơn nghỉ phép thành công',
+        'success'
+      );
       setIsModalOpen(false);
       reset();
       setSelectedLeave(null);
     },
     onError: (error: any) => {
-      showToast(error.response?.data?.message || 'Thao tác thất bại', 'error');
+      showToast(error.response?.data?.message || 'Action failed', 'error');
     },
   });
 
@@ -105,7 +108,7 @@ const Leaves: React.FC = () => {
       showToast('Duyệt đơn nghỉ phép thành công', 'success');
     },
     onError: (error: any) => {
-      showToast(error.response?.data?.message || 'Duyệt đơn thất bại', 'error');
+      showToast(error.response?.data?.message || 'Duyệt đơn nghỉ phép thất bại', 'error');
     },
   });
 
@@ -119,12 +122,35 @@ const Leaves: React.FC = () => {
       showToast('Xóa đơn nghỉ phép thành công', 'success');
     },
     onError: (error: any) => {
-      showToast(error.response?.data?.message || 'Xóa đơn thất bại', 'error');
+      showToast(error.response?.data?.message || 'Xóa đơn nghỉ phép thất bại', 'error');
     },
   });
 
   const onSubmit = (data: Leave) => {
     saveMutation.mutate(data);
+  };
+
+  const getEmployeeName = (leave: LeaveResponse): string => {
+    if (!leave.employee) return '-';
+
+    // If backend already attached full employee object
+    if (typeof leave.employee !== 'string') {
+      const empObj = leave.employee;
+      if (!empObj?.firstName && !empObj?.lastName) return '-';
+      return `${empObj.firstName || ''} ${empObj.lastName || ''}`.trim();
+    }
+
+    // Otherwise, try to resolve from employees list by id
+    const empId = leave.employee;
+    const empFromList = (employees as any[])?.find((e) => e._id === empId);
+    if (!empFromList) {
+      // Fallback: if this is the current user, use email as display name
+      if (user?.employeeId && user.employeeId === empId) {
+        return user.email || '-';
+      }
+      return '-';
+    }
+    return `${empFromList.firstName || ''} ${empFromList.lastName || ''}`.trim();
   };
 
   const handleApprove = async (leave: LeaveResponse) => {
@@ -171,7 +197,7 @@ const Leaves: React.FC = () => {
   const handleAdd = () => {
     setSelectedLeave(null);
     reset({
-      employee: user?.employeeId || '',
+      employee: isAdmin || isHR ? '' : user?.employeeId || '',
       leaveType: 'annual',
       startDate: '',
       endDate: '',
@@ -209,8 +235,21 @@ const Leaves: React.FC = () => {
     );
   };
 
-  const canApprove = user?.role === 'admin' || user?.role === 'hr' || user?.role === 'manager';
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+  const isHR = user?.role === 'hr';
+  const canApprove = isAdmin || isHR;
+
+  const isOwnLeave = (leave: LeaveResponse): boolean => {
+    const emp = leave.employee as any;
+    const empId =
+      typeof emp === 'string' ? emp : emp?._id;
+    return !!user?.employeeId && empId === user.employeeId;
+  };
+
+  const canEditLeave = (leave: LeaveResponse): boolean => {
+    if (isAdmin || isHR) return true;
+    return isOwnLeave(leave) && leave.status === 'pending';
+  };
 
   if (isLoading) {
     return (
@@ -225,9 +264,9 @@ const Leaves: React.FC = () => {
     <div>
       {ConfirmDialog}
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">Quản lý Nghỉ phép</h1>
+        <h1 className="text-3xl font-bold text-gray-800">Quản lý đơn nghỉ phép</h1>
         <button onClick={handleAdd} className="btn btn-primary">
-          + Tạo Đơn Nghỉ phép
+          + Tạo đơn nghỉ phép
         </button>
       </div>
 
@@ -267,16 +306,14 @@ const Leaves: React.FC = () => {
               {!leaves || leaves.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-8 text-center text-gray-500">
-                    Chưa có đơn nghỉ phép nào
+                    Không có đơn nghỉ phép nào
                   </td>
                 </tr>
               ) : (
                 leaves.map((leave) => (
                   <tr key={leave._id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {leave.employee
-                        ? `${leave.employee.firstName} ${leave.employee.lastName}`
-                        : '-'}
+                      {getEmployeeName(leave)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {getLeaveTypeLabel(leave.leaveType)}
@@ -305,13 +342,15 @@ const Leaves: React.FC = () => {
                           Duyệt
                         </button>
                       )}
-                      <button
-                        onClick={() => handleEdit(leave)}
-                        className="text-primary-600 hover:text-primary-900"
-                      >
-                        Sửa
-                      </button>
-                      {isAdmin && (
+                      {canEditLeave(leave) && (
+                        <button
+                          onClick={() => handleEdit(leave)}
+                          className="text-primary-600 hover:text-primary-900"
+                        >
+                          Sửa
+                        </button>
+                      )}
+                      {(isAdmin || isHR || canEditLeave(leave)) && (
                         <button
                           onClick={() => handleDelete(leave)}
                           className="text-red-600 hover:text-red-900"
@@ -333,35 +372,45 @@ const Leaves: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">
-              {selectedLeave ? 'Sửa Đơn Nghỉ phép' : 'Tạo Đơn Nghỉ phép'}
+              {selectedLeave ? 'Chỉnh sửa đơn nghỉ phép' : 'Tạo đơn nghỉ phép'}
             </h2>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Nhân viên *
                 </label>
-                <select
-                  {...register('employee', { required: 'Nhân viên là bắt buộc' })}
-                  className="input"
-                  disabled={!!selectedLeave}
-                >
-                  <option value="">Chọn nhân viên</option>
-                  {employees?.map((emp: any) => (
-                    <option key={emp._id} value={emp._id}>
-                      {emp.firstName} {emp.lastName} - {emp.email}
-                    </option>
-                  ))}
-                </select>
-                {errors.employee && (
-                  <p className="text-red-600 text-xs mt-1">{errors.employee.message}</p>
+                {isAdmin || isHR ? (
+                  <>
+                    <select
+                      {...register('employee', { required: 'Nhân viên là bắt buộc' })}
+                      className="input"
+                      disabled={!!selectedLeave}
+                    >
+                      <option value="">Chọn nhân viên</option>
+                      {employees?.map((emp: any) => (
+                        <option key={emp._id} value={emp._id}>
+                          {emp.firstName} {emp.lastName} - {emp.email}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.employee && (
+                      <p className="text-red-600 text-xs mt-1">{errors.employee.message}</p>
+                    )}
+                  </>
+                ) : (
+                  <input
+                    className="input bg-gray-50"
+                    value={user?.email || ''}
+                    readOnly
+                  />
                 )}
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Loại nghỉ phép *
+                  Loại nghỉ *
                 </label>
-                <select {...register('leaveType', { required: 'Loại nghỉ phép là bắt buộc' })} className="input">
+                <select {...register('leaveType', { required: 'Loại nghỉ là bắt buộc' })} className="input">
                   <option value="annual">Nghỉ phép năm</option>
                   <option value="sick">Nghỉ ốm</option>
                   <option value="personal">Nghỉ cá nhân</option>

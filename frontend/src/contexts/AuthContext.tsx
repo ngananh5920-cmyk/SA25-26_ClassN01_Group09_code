@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 interface User {
   id: string;
   email: string;
-  role: 'admin' | 'hr' | 'manager' | 'employee';
+  role: 'superadmin' | 'admin' | 'hr' | 'manager' | 'employee';
   employeeId?: string;
 }
 
@@ -22,6 +22,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const normalizeRole = (role?: string): User['role'] => {
+    if (role === 'superadmin') return 'superadmin';
+    if (role === 'admin') return 'admin';
+    if (role === 'hr') return 'hr';
+    if (role === 'manager') return 'manager';
+    return 'employee';
+  };
+
   useEffect(() => {
     // Load auth data from localStorage on mount
     const savedToken = localStorage.getItem('token');
@@ -30,7 +38,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (savedToken && savedUser) {
       try {
         setToken(savedToken);
-        setUser(JSON.parse(savedUser));
+        const parsedUser = JSON.parse(savedUser);
+        setUser({
+          ...parsedUser,
+          role: normalizeRole(parsedUser?.role),
+        });
       } catch (error) {
         console.error('Error loading auth data:', error);
         localStorage.removeItem('token');
@@ -42,9 +54,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const setAuth = (newToken: string, newUser: User) => {
     setToken(newToken);
-    setUser(newUser);
+    const normalizedUser = {
+      ...newUser,
+      role: normalizeRole(newUser?.role),
+    };
+    setUser(normalizedUser);
     localStorage.setItem('token', newToken);
-    localStorage.setItem('user', JSON.stringify(newUser));
+    localStorage.setItem('user', JSON.stringify(normalizedUser));
   };
 
   const logout = () => {

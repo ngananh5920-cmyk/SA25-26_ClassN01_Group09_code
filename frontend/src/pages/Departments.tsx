@@ -100,7 +100,7 @@ const Departments: React.FC = () => {
       setSelectedDepartment(null);
     },
     onError: (error: any) => {
-      showToast(error.response?.data?.message || 'Thao tác thất bại', 'error');
+      showToast(error.response?.data?.message || 'Action failed', 'error');
     },
   });
 
@@ -172,17 +172,17 @@ const Departments: React.FC = () => {
   const getStatusBadge = (status: string) => {
     return status === 'active' ? (
       <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-        Hoạt động
+        Active
       </span>
     ) : (
       <span className="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-        Không hoạt động
+        Inactive
       </span>
     );
   };
 
   const exportToCSV = () => {
-    const headers = ['Tên Phòng ban', 'Mô tả', 'Trưởng phòng', 'Ngân sách', 'Trạng thái'];
+    const headers = ['Tên phòng ban', 'Mô tả', 'Trưởng phòng', 'Ngân sách', 'Trạng thái'];
     const rows = filteredDepartments.map((dept) => {
       const managerName = typeof dept.manager === 'object' && dept.manager !== null
         ? `${dept.manager.firstName} ${dept.manager.lastName}`
@@ -206,12 +206,11 @@ const Departments: React.FC = () => {
     link.href = URL.createObjectURL(blob);
     link.download = `departments_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
-    showToast('Xuất file CSV thành công', 'success');
+    showToast('CSV exported successfully', 'success');
   };
 
   const isAdmin = user?.role === 'admin';
-  const isHR = user?.role === 'hr';
-  const canEdit = isAdmin || isHR;
+  const canEdit = isAdmin;
 
   if (isLoading) {
     return (
@@ -226,7 +225,7 @@ const Departments: React.FC = () => {
     <div>
       {ConfirmDialog}
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Quản lý Phòng ban</h1>
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Quản lý phòng ban</h1>
         <div className="flex space-x-3">
           {canEdit && filteredDepartments.length > 0 && (
             <button
@@ -234,12 +233,12 @@ const Departments: React.FC = () => {
               className="btn btn-secondary flex items-center space-x-2"
             >
               <span>📥</span>
-              <span>Xuất CSV</span>
+              <span>Export CSV</span>
             </button>
           )}
           {canEdit && (
             <button onClick={handleAdd} className="btn btn-primary">
-              + Thêm Phòng ban
+              + Thêm phòng ban
             </button>
           )}
         </div>
@@ -271,9 +270,9 @@ const Departments: React.FC = () => {
               }}
               className="input"
             >
-              <option value="all">Tất cả</option>
-              <option value="active">Hoạt động</option>
-              <option value="inactive">Không hoạt động</option>
+              <option value="all">All</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
             </select>
           </div>
           <div className="flex items-end">
@@ -301,7 +300,7 @@ const Departments: React.FC = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tên Phòng ban
+                  Tên phòng ban
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Mô tả
@@ -319,7 +318,7 @@ const Departments: React.FC = () => {
                 </th>
                 {canEdit && (
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Thao tác
+                  Thao tác
                   </th>
                 )}
               </tr>
@@ -329,8 +328,8 @@ const Departments: React.FC = () => {
                 <tr>
                   <td colSpan={canEdit ? (isAdmin ? 6 : 5) : (isAdmin ? 5 : 4)} className="px-6 py-8 text-center text-gray-500">
                     {searchTerm || statusFilter !== 'all'
-                      ? 'Không tìm thấy phòng ban nào'
-                      : 'Chưa có phòng ban nào'}
+                      ? 'Không có phòng ban nào'
+                      : 'Không có phòng ban nào'}
                   </td>
                 </tr>
               ) : (
@@ -394,7 +393,7 @@ const Departments: React.FC = () => {
                   disabled={currentPage === 1}
                   className="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  ‹ Trước
+                  ‹ Prev
                 </button>
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                   <button
@@ -412,7 +411,7 @@ const Departments: React.FC = () => {
                   disabled={currentPage === totalPages}
                   className="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Sau ›
+                  Next ›
                 </button>
               </div>
             </div>
@@ -425,12 +424,12 @@ const Departments: React.FC = () => {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
           <div className="bg-white rounded-2xl p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-100">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">
-              {selectedDepartment ? 'Sửa Phòng ban' : 'Thêm Phòng ban'}
+              {selectedDepartment ? 'Chỉnh sửa phòng ban' : 'Thêm phòng ban'}
             </h2>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tên Phòng ban *
+                  Tên phòng ban *
                 </label>
                 <input
                   type="text"
@@ -487,8 +486,8 @@ const Departments: React.FC = () => {
                   Trạng thái *
                 </label>
                 <select {...register('status')} className="input">
-                  <option value="active">Hoạt động</option>
-                  <option value="inactive">Không hoạt động</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
                 </select>
               </div>
 

@@ -74,14 +74,14 @@ const Training: React.FC = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trainings'] });
       showToast(
-        selectedTraining ? 'Cập nhật khóa đào tạo thành công' : 'Tạo khóa đào tạo thành công',
+        selectedTraining ? 'Cập nhật khóa học thành công' : 'Tạo khóa học thành công',
         'success'
       );
       setIsModalOpen(false);
       resetForm();
     },
     onError: (error: any) => {
-      showToast(error.response?.data?.message || 'Thao tác thất bại', 'error');
+      showToast(error.response?.data?.message || 'Action failed', 'error');
     },
   });
 
@@ -91,7 +91,7 @@ const Training: React.FC = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trainings'] });
-      showToast('Xóa khóa đào tạo thành công', 'success');
+      showToast('Xóa khóa học thành công', 'success');
     },
     onError: (error: any) => {
       showToast(error.response?.data?.message || 'Xóa thất bại', 'error');
@@ -132,7 +132,7 @@ const Training: React.FC = () => {
   const handleDelete = async (training: Training) => {
     const confirmed = await confirm({
       title: 'Xác nhận xóa',
-      message: `Bạn có chắc chắn muốn xóa khóa đào tạo "${training.title}"?`,
+      message: `Bạn có chắc muốn xóa khóa học "${training.title}"?`,
       confirmText: 'Xóa',
       cancelText: 'Hủy',
       type: 'danger',
@@ -196,7 +196,7 @@ const Training: React.FC = () => {
             }}
             className="btn btn-primary flex items-center gap-2"
           >
-            <Plus size={20} /> Tạo Khóa đào tạo
+            <Plus size={20} /> Tạo khóa học
           </button>
         )}
       </div>
@@ -270,7 +270,7 @@ const Training: React.FC = () => {
       {trainings.length === 0 && (
         <div className="card text-center py-12">
           <BookOpen size={48} className="mx-auto text-gray-400 mb-4" />
-          <p className="text-gray-600">Chưa có khóa đào tạo nào</p>
+          <p className="text-gray-600">Chưa có khóa học</p>
         </div>
       )}
 
@@ -279,7 +279,7 @@ const Training: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">
-              {selectedTraining ? 'Sửa Khóa đào tạo' : 'Tạo Khóa đào tạo'}
+              {selectedTraining ? 'Chỉnh sửa khóa học' : 'Tạo khóa học'}
             </h2>
             <form onSubmit={handleSubmit}>
               <div className="space-y-4">
@@ -293,7 +293,7 @@ const Training: React.FC = () => {
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     className="input w-full"
-                    placeholder="Ví dụ: Đào tạo Kỹ năng Bán hàng"
+                    placeholder="Ví dụ: Đào tạo kỹ năng bán hàng"
                   />
                 </div>
 
@@ -307,14 +307,14 @@ const Training: React.FC = () => {
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     className="input w-full"
                     rows={4}
-                    placeholder="Mô tả chi tiết về khóa đào tạo"
+                    placeholder="Mô tả chi tiết khóa học"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Loại <span className="text-red-500">*</span>
+                      Hình thức <span className="text-red-500">*</span>
                     </label>
                     <select
                       required
@@ -380,12 +380,12 @@ const Training: React.FC = () => {
                       value={formData.location}
                       onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                       className="input w-full"
-                      placeholder="Địa điểm tổ chức"
+                      placeholder="Địa điểm đào tạo"
                     />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Số lượng tối đa
+                      Số học viên tối đa
                     </label>
                     <input
                       type="number"

@@ -41,9 +41,9 @@ export const useConfirm = () => {
   const ConfirmDialogComponent = isOpen ? (
     <ConfirmDialog
       isOpen={isOpen}
-      title={options.title || 'Xác nhận'}
+      title={options.title || 'Confirm'}
       message={options.message}
-      confirmText={options.confirmText || 'Xác nhận'}
+      confirmText={options.confirmText || 'Confirm'}
       cancelText={options.cancelText || 'Hủy'}
       type={options.type || 'warning'}
       onConfirm={handleConfirm}

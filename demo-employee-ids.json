@@ -1,0 +1,12 @@
+{
+  "adminEmployeeId": "6981b65495a7a492de5195dc",
+  "employeeId": "6981b65495a7a492de5195de",
+  "departments": {
+    "hr": "6981b65495a7a492de5195c4",
+    "engineering": "6981b65495a7a492de5195c5"
+  },
+  "positions": {
+    "hrManager": "6981b65495a7a492de5195d1",
+    "softwareEngineer": "6981b65495a7a492de5195d3"
+  }
+}

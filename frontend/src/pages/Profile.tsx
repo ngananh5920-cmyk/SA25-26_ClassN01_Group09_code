@@ -65,9 +65,9 @@ const Profile: React.FC = () => {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">ID Nhân viên</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Mã nhân viên</label>
               <div className="px-4 py-2 bg-gray-50 rounded-lg text-gray-900">
-                {user?.employeeId || 'Chưa có'}
+                {user?.employeeId || 'Không có'}
               </div>
             </div>
           </div>
@@ -161,7 +161,7 @@ const Profile: React.FC = () => {
 
           {!isChangingPassword && (
             <p className="text-sm text-gray-500 mt-4">
-              Nhấn vào nút "Đổi mật khẩu" để thay đổi mật khẩu của bạn.
+              Nhấn "Đổi mật khẩu" để thay đổi mật khẩu của bạn.
             </p>
           )}
         </div>

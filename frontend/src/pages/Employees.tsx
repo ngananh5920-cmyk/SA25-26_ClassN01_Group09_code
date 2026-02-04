@@ -6,6 +6,13 @@ import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../hooks/useConfirm';
 import api from '../utils/api';
 
+interface AccountForm {
+  email: string;
+  password: string;
+  role: 'admin' | 'hr' | 'manager' | 'employee';
+  employeeId?: string;
+}
+
 interface Employee {
   _id?: string;
   employeeId: string;
@@ -50,6 +57,7 @@ const Employees: React.FC = () => {
   const { confirm, ConfirmDialog } = useConfirm();
   const queryClient = useQueryClient();
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<EmployeeResponse | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -59,6 +67,20 @@ const Employees: React.FC = () => {
 
   const { register, handleSubmit, reset, formState: { errors } } = useForm<Employee>({
     defaultValues: selectedEmployee || {},
+  });
+
+  const {
+    register: registerAccount,
+    handleSubmit: handleAccountSubmit,
+    reset: resetAccountForm,
+    formState: { errors: accountErrors },
+  } = useForm<AccountForm>({
+    defaultValues: {
+      email: '',
+      password: '',
+      role: 'employee',
+      employeeId: '',
+    },
   });
 
   // Fetch employees
@@ -131,7 +153,29 @@ const Employees: React.FC = () => {
       setSelectedEmployee(null);
     },
     onError: (error: any) => {
-      showToast(error.response?.data?.message || 'Thao tác thất bại', 'error');
+      showToast(error.response?.data?.message || 'Action failed', 'error');
+    },
+  });
+
+  const createAccountMutation = useMutation({
+    mutationFn: async (data: AccountForm) => {
+      const payload: any = {
+        email: data.email,
+        password: data.password,
+        role: data.role,
+      };
+      if (data.employeeId) {
+        payload.employeeId = data.employeeId;
+      }
+      return api.post('/auth/users', payload);
+    },
+    onSuccess: () => {
+      showToast('Tạo tài khoản thành công', 'success');
+      setIsAccountModalOpen(false);
+      resetAccountForm();
+    },
+    onError: (error: any) => {
+      showToast(error.response?.data?.message || 'Tạo tài khoản thất bại', 'error');
     },
   });
 
@@ -147,7 +191,7 @@ const Employees: React.FC = () => {
       queryClient.invalidateQueries({ queryKey: ['leaves'] });
       queryClient.invalidateQueries({ queryKey: ['employeeStats'] });
       queryClient.invalidateQueries({ queryKey: ['departments'] });
-      showToast(data?.message || 'Xóa nhân viên và tất cả dữ liệu liên quan thành công', 'success');
+      showToast(data?.message || 'Xóa nhân viên và dữ liệu liên quan thành công', 'success');
     },
     onError: (error: any) => {
       showToast(error.response?.data?.message || 'Xóa nhân viên thất bại', 'error');
@@ -211,6 +255,16 @@ const Employees: React.FC = () => {
     setIsModalOpen(true);
   };
 
+  const handleAddAccount = (employee?: EmployeeResponse) => {
+    resetAccountForm({
+      email: employee?.email || '',
+      password: '',
+      role: 'employee',
+      employeeId: employee?._id || '',
+    });
+    setIsAccountModalOpen(true);
+  };
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', {
       style: 'currency',
@@ -220,8 +274,8 @@ const Employees: React.FC = () => {
 
   const getStatusBadge = (status: string) => {
     const statusMap: Record<string, { label: string; color: string }> = {
-      active: { label: 'Hoạt động', color: 'bg-green-100 text-green-800' },
-      inactive: { label: 'Không hoạt động', color: 'bg-gray-100 text-gray-800' },
+      active: { label: 'Active', color: 'bg-green-100 text-green-800' },
+      inactive: { label: 'Inactive', color: 'bg-gray-100 text-gray-800' },
       terminated: { label: 'Đã nghỉ việc', color: 'bg-red-100 text-red-800' },
     };
     const statusInfo = statusMap[status] || statusMap.inactive;
@@ -233,7 +287,7 @@ const Employees: React.FC = () => {
   };
 
   const exportToCSV = () => {
-    const headers = ['Mã NV', 'Họ Tên', 'Email', 'SĐT', 'Phòng ban', 'Chức vụ', 'Lương', 'Trạng thái'];
+    const headers = ['Mã NV', 'Họ tên', 'Email', 'SĐT', 'Phòng ban', 'Chức vụ', 'Lương', 'Trạng thái'];
     const rows = filteredEmployees.map((emp) => [
       emp.employeeId,
       `${emp.firstName} ${emp.lastName}`,
@@ -255,14 +309,13 @@ const Employees: React.FC = () => {
     link.href = URL.createObjectURL(blob);
     link.download = `employees_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
-    showToast('Xuất file CSV thành công', 'success');
+    showToast('CSV exported successfully', 'success');
   };
 
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
   const isHR = user?.role === 'hr';
-  const isManager = user?.role === 'manager';
-  const canSeeSalary = isAdmin || isHR || isManager;
-  const canEdit = isAdmin;
+  const canSeeSalary = isAdmin || isHR;
+  const canEdit = isAdmin || isHR;
 
   if (isLoading) {
     return (
@@ -278,20 +331,25 @@ const Employees: React.FC = () => {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Quản lý Nhân viên</h1>
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Quản lý nhân viên</h1>
         <div className="flex space-x-3">
+          {canEdit && (
+            <button onClick={() => handleAddAccount()} className="btn btn-secondary">
+              + Tạo tài khoản
+            </button>
+          )}
           {canEdit && filteredEmployees.length > 0 && (
             <button
               onClick={exportToCSV}
               className="btn btn-secondary flex items-center space-x-2"
             >
               <span>📥</span>
-              <span>Xuất CSV</span>
+              <span>Export CSV</span>
             </button>
           )}
           {canEdit && (
             <button onClick={handleAdd} className="btn btn-primary">
-              + Thêm Nhân viên
+              + Thêm nhân viên
             </button>
           )}
         </div>
@@ -323,9 +381,9 @@ const Employees: React.FC = () => {
               }}
               className="input"
             >
-              <option value="all">Tất cả</option>
-              <option value="active">Hoạt động</option>
-              <option value="inactive">Không hoạt động</option>
+              <option value="all">All</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
               <option value="terminated">Đã nghỉ việc</option>
             </select>
           </div>
@@ -339,7 +397,7 @@ const Employees: React.FC = () => {
               }}
               className="input"
             >
-              <option value="all">Tất cả</option>
+              <option value="all">All</option>
               {departments?.map((dept: any) => (
                 <option key={dept._id} value={dept._id}>
                   {dept.name}
@@ -376,7 +434,7 @@ const Employees: React.FC = () => {
                   Mã NV
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Họ Tên
+                  Họ tên
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Email
@@ -385,11 +443,11 @@ const Employees: React.FC = () => {
                   Phòng ban
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Chức vụ
+                  Positions
                 </th>
                 {canSeeSalary && (
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Lương
+                  Lương
                   </th>
                 )}
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -407,8 +465,8 @@ const Employees: React.FC = () => {
                 <tr>
                   <td colSpan={canEdit ? (canSeeSalary ? 8 : 7) : (canSeeSalary ? 7 : 6)} className="px-6 py-8 text-center text-gray-500">
                     {searchTerm || statusFilter !== 'all' || departmentFilter !== 'all'
-                      ? 'Không tìm thấy nhân viên nào'
-                      : 'Chưa có nhân viên nào'}
+                      ? 'Không có nhân viên nào'
+                      : 'Không có nhân viên nào'}
                   </td>
                 </tr>
               ) : (
@@ -446,6 +504,12 @@ const Employees: React.FC = () => {
                           ✏️ Sửa
                         </button>
                         <button
+                          onClick={() => handleAddAccount(employee)}
+                          className="text-indigo-600 hover:text-indigo-900 font-medium"
+                        >
+                          👤 Tạo tài khoản
+                        </button>
+                        <button
                           onClick={() => handleDelete(employee)}
                           className="text-red-600 hover:text-red-900 font-medium"
                         >
@@ -474,7 +538,7 @@ const Employees: React.FC = () => {
                   disabled={currentPage === 1}
                   className="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  ‹ Trước
+                  ‹ Prev
                 </button>
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                   <button
@@ -492,7 +556,7 @@ const Employees: React.FC = () => {
                   disabled={currentPage === totalPages}
                   className="btn btn-secondary disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Sau ›
+                  Next ›
                 </button>
               </div>
             </div>
@@ -505,13 +569,13 @@ const Employees: React.FC = () => {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
           <div className="bg-white rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-100">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">
-              {selectedEmployee ? 'Sửa Nhân viên' : 'Thêm Nhân viên'}
+              {selectedEmployee ? 'Chỉnh sửa nhân viên' : 'Thêm nhân viên'}
             </h2>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Mã Nhân viên *
+                    Mã nhân viên *
                   </label>
                   <input
                     type="text"
@@ -701,8 +765,8 @@ const Employees: React.FC = () => {
                     Trạng thái *
                   </label>
                   <select {...register('status')} className="input">
-                    <option value="active">Hoạt động</option>
-                    <option value="inactive">Không hoạt động</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
                     <option value="terminated">Đã nghỉ việc</option>
                   </select>
                 </div>
@@ -726,6 +790,83 @@ const Employees: React.FC = () => {
                   className="btn btn-primary"
                 >
                   {saveMutation.isPending ? 'Đang lưu...' : selectedEmployee ? 'Cập nhật' : 'Thêm'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {isAccountModalOpen && canEdit && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
+          <div className="bg-white rounded-2xl p-8 max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-100">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Tạo tài khoản</h2>
+            <form
+              onSubmit={handleAccountSubmit((data) => createAccountMutation.mutate(data))}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                <input
+                  type="email"
+                  {...registerAccount('email', { required: 'Email là bắt buộc' })}
+                  className="input"
+                />
+                {accountErrors.email && (
+                  <p className="text-red-600 text-xs mt-1">{accountErrors.email.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu *</label>
+                <input
+                  type="password"
+                  {...registerAccount('password', { required: 'Mật khẩu là bắt buộc', minLength: 6 })}
+                  className="input"
+                />
+                {accountErrors.password && (
+                  <p className="text-red-600 text-xs mt-1">{accountErrors.password.message}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Vai trò</label>
+                <select {...registerAccount('role')} className="input">
+                  <option value="employee">Nhân viên</option>
+                  <option value="manager">Quản lý</option>
+                  <option value="hr">HR</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Liên kết nhân viên</label>
+                <select {...registerAccount('employeeId')} className="input">
+                  <option value="">Không liên kết</option>
+                  {employees.map((emp) => (
+                    <option key={emp._id} value={emp._id}>
+                      {emp.firstName} {emp.lastName} - {emp.email}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAccountModalOpen(false);
+                    resetAccountForm();
+                  }}
+                  className="btn btn-secondary"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  disabled={createAccountMutation.isPending}
+                  className="btn btn-primary"
+                >
+                  {createAccountMutation.isPending ? 'Đang tạo...' : 'Tạo tài khoản'}
                 </button>
               </div>
             </form>

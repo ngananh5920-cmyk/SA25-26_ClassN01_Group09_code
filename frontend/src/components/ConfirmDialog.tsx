@@ -15,7 +15,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   isOpen,
   title,
   message,
-  confirmText = 'Xác nhận',
+  confirmText = 'Confirm',
   cancelText = 'Hủy',
   type = 'warning',
   onConfirm,

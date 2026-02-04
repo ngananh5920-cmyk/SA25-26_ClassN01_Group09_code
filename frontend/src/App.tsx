@@ -16,9 +16,10 @@ import Leaves from './pages/Leaves';
 import Salaries from './pages/Salaries';
 import Recruitment from './pages/Recruitment';
 import KPIs from './pages/KPIs';
-import Training from './pages/Training';
+import Attendance from './pages/Attendance';
 import Announcements from './pages/Announcements';
 import Profile from './pages/Profile';
+import AuditLogs from './pages/AuditLogs';
 
 const App: React.FC = () => {
   return (
@@ -111,11 +112,11 @@ const App: React.FC = () => {
             }
           />
           <Route
-            path="/training"
+            path="/attendance"
             element={
               <ProtectedRoute>
                 <Layout>
-                  <Training />
+                  <Attendance />
                 </Layout>
               </ProtectedRoute>
             }
@@ -126,6 +127,16 @@ const App: React.FC = () => {
               <ProtectedRoute>
                 <Layout>
                   <Announcements />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/audit-logs"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <AuditLogs />
                 </Layout>
               </ProtectedRoute>
             }

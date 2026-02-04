@@ -29,10 +29,10 @@ class ErrorBoundary extends Component<Props, State> {
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
           <div className="text-center p-8">
             <h1 className="text-2xl font-bold text-gray-900 mb-4">
-              Đã xảy ra lỗi
+              Something went wrong
             </h1>
             <p className="text-gray-600 mb-4">
-              Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại.
+              Sorry, an unexpected error occurred. Please try again.
             </p>
             <button
               onClick={() => {
@@ -41,7 +41,7 @@ class ErrorBoundary extends Component<Props, State> {
               }}
               className="btn btn-primary"
             >
-              Tải lại trang
+              Reload page
             </button>
             {process.env.NODE_ENV === 'development' && this.state.error && (
               <pre className="mt-4 text-left text-sm text-red-600 bg-red-50 p-4 rounded overflow-auto max-w-2xl">
